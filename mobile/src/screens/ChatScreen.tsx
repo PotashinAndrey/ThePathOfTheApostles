@@ -9,33 +9,77 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ChatBubble } from '../components/ChatBubble';
-import { ChatMessage, chatAPI } from '../services/api';
+import { ChatMessage, chatAPI, chatAPIWithAuth, ChatRequest } from '../services/api';
+import { contextService, ContextMessage } from '../services/contextService';
+import { APOSTLES } from '../constants/apostles';
 
 export const ChatScreen: React.FC = () => {
   const { theme } = useThemeStore();
-  const { user } = useUserStore();
+  const { user, totalDays, token } = useUserStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputText, setInputText] = useState('');
+  const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const currentApostle = user?.currentApostle;
+  const currentApostle = user?.currentApostle || APOSTLES.find(a => a.id === 'peter');
 
   useEffect(() => {
-    if (currentApostle) {
-      // Приветственное сообщение от апостола
-      const welcomeMessage: ChatMessage = {
+    if (currentApostle && user?.id) {
+      loadChatHistory();
+    }
+  }, [currentApostle, user?.id]);
+
+  const loadChatHistory = async () => {
+    if (!currentApostle || !user?.id) return;
+    
+    try {
+      const context = await contextService.getContext(user.id, currentApostle.id);
+      
+      // Преобразуем контекстные сообщения в формат ChatMessage
+      const chatMessages = context.messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp,
+      }));
+      
+      // Если это первый раз, добавляем приветственное сообщение
+      if (chatMessages.length === 0) {
+        const welcomeMessage: ChatMessage = {
+          role: 'assistant',
+          content: currentApostle.welcomeMessage || getWelcomeMessage(),
+          timestamp: new Date(),
+        };
+        
+        // Добавляем в контекст
+        await contextService.addMessage(
+          user.id,
+          currentApostle.id,
+          {
+            role: 'assistant',
+            content: welcomeMessage.content,
+            timestamp: welcomeMessage.timestamp,
+          }
+        );
+        
+        setMessages([welcomeMessage]);
+      } else {
+        setMessages(chatMessages);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      // Fallback к стандартному приветствию
+      setMessages([{
         role: 'assistant',
         content: getWelcomeMessage(),
         timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
+      }]);
     }
-  }, [currentApostle]);
+  };
 
   const getWelcomeMessage = () => {
     if (!currentApostle) return 'Добро пожаловать!';
@@ -50,45 +94,82 @@ export const ChatScreen: React.FC = () => {
   };
 
   const sendMessage = async () => {
-    if (!inputText.trim() || !currentApostle || isLoading) return;
+    console.log('📤 sendMessage вызвана');
+    console.log('👤 Пользователь:', user?.email || 'не найден');
+    console.log('🎫 Токен:', !!token ? 'есть' : 'отсутствует');
+    console.log('�� Сообщение:', inputMessage);
+    console.log('👥 Апостол:', user?.currentApostle?.name || 'не выбран');
+
+    if (!user?.id) {
+      console.error('❌ Пользователь не авторизован');
+      Alert.alert('Ошибка', 'Пользователь не авторизован');
+      return;
+    }
+
+    if (!token) {
+      console.error('❌ Токен авторизации отсутствует');
+      Alert.alert('Ошибка', 'Требуется повторная авторизация');
+      return;
+    }
+
+    if (!inputMessage.trim()) {
+      console.log('⚠️ Пустое сообщение, отмена отправки');
+      return;
+    }
+
+    if (!user.currentApostle) {
+      console.error('❌ Апостол не выбран');
+      Alert.alert('Ошибка', 'Апостол не выбран');
+      return;
+    }
+
+    console.log('✅ Все проверки пройдены, отправляем сообщение');
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: inputText.trim(),
+      content: inputMessage.trim(),
       timestamp: new Date(),
     };
 
+    console.log('📝 Создано пользовательское сообщение:', userMessage);
+
     setMessages(prev => [...prev, userMessage]);
-    setInputText('');
+    setInputMessage('');
     setIsLoading(true);
 
     try {
-      const response = await chatAPI.sendMessage({
-        apostleId: currentApostle.id,
+      console.log('🌐 Отправляем запрос к API...');
+      
+      const request: ChatRequest = {
+        apostleId: user.currentApostle.id,
         message: userMessage.content,
-        context: messages.slice(-5).map(m => m.content), // Последние 5 сообщений для контекста
-      });
+        context: messages.slice(-5).map(m => `${m.role}: ${m.content}`),
+        additionalContext: `Пользователь: ${user.name}. Текущий день пути: ${totalDays + 1}.`
+      };
 
-      const apostleMessage: ChatMessage = {
+      console.log('📦 Параметры запроса:', request);
+
+      const response = await chatAPIWithAuth.sendMessage(request, token);
+      
+      console.log('✅ Получен ответ от API:', response);
+
+      const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
         timestamp: new Date(response.timestamp),
       };
 
-      setMessages(prev => [...prev, apostleMessage]);
+      console.log('🤖 Создано сообщение ассистента:', assistantMessage);
+
+      setMessages(prev => [...prev, assistantMessage]);
+      console.log('✅ Сообщение добавлено в чат');
+
     } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Fallback ответ при ошибке
-      const errorMessage: ChatMessage = {
-        role: 'assistant',
-        content: 'Прости, у меня временные трудности с ответом. Попробуй задать вопрос позже.',
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
+      console.error('❌ Ошибка отправки сообщения:', error);
+      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
     } finally {
       setIsLoading(false);
+      console.log('🏁 sendMessage завершена');
     }
   };
 
@@ -172,8 +253,8 @@ export const ChatScreen: React.FC = () => {
                 borderColor: theme.colors.border,
               }
             ]}
-            value={inputText}
-            onChangeText={setInputText}
+            value={inputMessage}
+            onChangeText={setInputMessage}
             placeholder="Напишите сообщение..."
             placeholderTextColor={theme.colors.textSecondary}
             multiline
@@ -184,13 +265,19 @@ export const ChatScreen: React.FC = () => {
             style={[
               styles.sendButton,
               {
-                backgroundColor: inputText.trim() && !isLoading 
+                backgroundColor: inputMessage.trim() && !isLoading 
                   ? currentApostle.color 
                   : theme.colors.border,
               }
             ]}
-            onPress={sendMessage}
-            disabled={!inputText.trim() || isLoading}
+            onPress={() => {
+              console.log('🖱️ Кнопка отправки нажата!');
+              console.log('🖱️ inputMessage:', inputMessage);
+              console.log('🖱️ isLoading:', isLoading);
+              console.log('🖱️ disabled:', !inputMessage.trim() || isLoading);
+              sendMessage();
+            }}
+            disabled={!inputMessage.trim() || isLoading}
           >
             <Text style={styles.sendButtonText}>📤</Text>
           </TouchableOpacity>

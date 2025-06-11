@@ -15,9 +15,16 @@
     "type-check": "cd mobile && npm run type-check && cd ../backend && npm run type-check"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "tsx": "^4.20.1"
   },
-  "keywords": ["react-native", "spiritual", "ai", "apostles", "development"],
+  "keywords": [
+    "react-native",
+    "spiritual",
+    "ai",
+    "apostles",
+    "development"
+  ],
   "author": "Andry Potashin",
   "license": "MIT"
-} 
+}

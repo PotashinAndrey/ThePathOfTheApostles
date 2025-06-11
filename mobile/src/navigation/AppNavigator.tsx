@@ -2,13 +2,15 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Text } from 'react-native';
+import { Text, Platform } from 'react-native';
 
 import { useThemeStore } from '../stores/themeStore';
+import { useUserStore } from '../stores/userStore';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { ApostlesScreen } from '../screens/ApostlesScreen';
 import { MissionsScreen } from '../screens/MissionsScreen';
+import { AuthScreen } from '../screens/AuthScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -94,6 +96,22 @@ const MainTabs: React.FC = () => {
 
 export const AppNavigator: React.FC = () => {
   const { theme } = useThemeStore();
+  const { user, isAuthenticated } = useUserStore();
+
+  console.log('🔐 AppNavigator: Проверка авторизации');
+  console.log('👤 Текущий пользователь:', user?.email || 'не авторизован');
+  console.log('🔧 Platform:', Platform.OS);
+
+  // Проверяем авторизацию через новую систему
+  const userIsAuthenticated = isAuthenticated();
+  console.log('✅ Пользователь авторизован:', userIsAuthenticated);
+  
+  // Debug логи
+  if (userIsAuthenticated) {
+    console.log('📱 Рендерим MainTabs для авторизованного пользователя');
+  } else {
+    console.log('🔐 Рендерим AuthScreen для неавторизованного пользователя');
+  }
 
   return (
     <NavigationContainer
@@ -126,13 +144,20 @@ export const AppNavigator: React.FC = () => {
           },
         },
       }}
+      onStateChange={(state) => {
+        console.log('🧭 Navigation state изменен:', state?.routes?.[0]?.name);
+      }}
     >
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
         }}
       >
-        <Stack.Screen name="MainTabs" component={MainTabs} />
+        {userIsAuthenticated ? (
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+        ) : (
+          <Stack.Screen name="Auth" component={AuthScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -10,6 +10,13 @@ export async function generateApostleResponse(
   context: string[] = [],
   systemPrompt: string
 ): Promise<string> {
+  console.log('🤖 generateApostleResponse вызвана');
+  console.log('📝 Параметры:');
+  console.log('- apostleId:', apostleId);
+  console.log('- userMessage:', userMessage);
+  console.log('- context:', context);
+  console.log('- systemPrompt длина:', systemPrompt.length);
+  
   try {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       {
@@ -27,6 +34,10 @@ export async function generateApostleResponse(
       },
     ];
 
+    console.log('📨 Подготовлены сообщения для OpenAI:', messages);
+    console.log('🔑 OpenAI API Key установлен:', !!process.env.OPENAI_API_KEY);
+    console.log('🔑 OpenAI API Key длина:', process.env.OPENAI_API_KEY?.length || 0);
+
     const response = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages,
@@ -36,9 +47,24 @@ export async function generateApostleResponse(
       frequency_penalty: 0.1,
     });
 
-    return response.choices[0]?.message?.content || 'Прости, я не могу ответить прямо сейчас.';
+    console.log('✅ Получен ответ от OpenAI API');
+    console.log('📊 Использование токенов:', response.usage);
+    
+    const generatedResponse = response.choices[0]?.message?.content || 'Прости, я не могу ответить прямо сейчас.';
+    console.log('📤 Сгенерированный ответ:', generatedResponse);
+    
+    return generatedResponse;
   } catch (error) {
-    console.error('OpenAI API error:', error);
+    console.error('❌ Ошибка OpenAI API:', error);
+    console.error('❌ Детали ошибки OpenAI:', {
+      message: (error as Error)?.message,
+      name: (error as Error)?.name,
+      stack: (error as Error)?.stack,
+      // OpenAI specific error details
+      status: (error as any)?.status,
+      code: (error as any)?.code,
+      type: (error as any)?.type,
+    });
     throw new Error('Ошибка при генерации ответа');
   }
 }

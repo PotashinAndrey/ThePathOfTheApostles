@@ -4,6 +4,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+// Принудительно создаем новый клиент при каждом запуске
+export const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma; 
+// В режиме разработки используем глобальный клиент для предотвращения переподключений
+if (process.env.NODE_ENV !== 'production') {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = prisma;
+  }
+} 
