@@ -4,7 +4,7 @@ import { generateApostleResponse } from '../../../lib/openai';
 
 export async function POST(request: NextRequest) {
   try {
-    const { apostleId, message, context, userId } = await request.json();
+    const { apostleId, message, context, userId, additionalContext } = await request.json();
 
     if (!apostleId || !message) {
       return NextResponse.json(
@@ -25,12 +25,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate AI response
+    // Подготавливаем расширенный контекст
+    let enhancedContext = context || [];
+    
+    // Добавляем дополнительный контекст от приложения если есть
+    if (additionalContext) {
+      enhancedContext.unshift(`[Контекст приложения: ${additionalContext}]`);
+    }
+
+    // Generate AI response with enhanced system prompt
+    const systemPrompt = apostle.systemPrompt || `Ты - ${apostle.name}, апостол ${apostle.virtue}. Твой архетип - ${apostle.archetype}. ${apostle.personality}`;
+    
     const aiResponse = await generateApostleResponse(
       apostleId,
       message,
-      context || [],
-      apostle.systemPrompt
+      enhancedContext,
+      systemPrompt
     );
 
     // Save chat message if userId is provided
