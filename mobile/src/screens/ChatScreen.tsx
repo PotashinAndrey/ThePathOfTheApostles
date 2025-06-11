@@ -93,7 +93,22 @@ export const ChatScreen: React.FC = () => {
   };
 
   const sendMessage = async () => {
-    if (!inputText.trim() || !currentApostle || isLoading || !user?.id) return;
+    console.log('🔥 sendMessage вызвана');
+    console.log('📝 inputText:', inputText);
+    console.log('👤 currentApostle:', currentApostle?.id);
+    console.log('⏳ isLoading:', isLoading);
+    console.log('🆔 user?.id:', user?.id);
+    
+    if (!inputText.trim() || !currentApostle || isLoading || !user?.id) {
+      console.log('❌ Условие проверки не прошло, выходим из функции');
+      console.log('- inputText.trim():', !!inputText.trim());
+      console.log('- currentApostle:', !!currentApostle);
+      console.log('- !isLoading:', !isLoading);
+      console.log('- user?.id:', !!user?.id);
+      return;
+    }
+
+    console.log('✅ Все проверки прошли, начинаем отправку сообщения');
 
     const userMessage: ChatMessage = {
       role: 'user',
@@ -101,11 +116,16 @@ export const ChatScreen: React.FC = () => {
       timestamp: new Date(),
     };
 
+    console.log('📨 Создано пользовательское сообщение:', userMessage);
+
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
 
+    console.log('🔄 Состояние обновлено: сообщение добавлено, input очищен, loading=true');
+
     try {
+      console.log('🔄 Добавляем сообщение в контекст...');
       // Добавляем сообщение пользователя в контекст
       const context = await contextService.addMessage(
         user.id,
@@ -117,8 +137,11 @@ export const ChatScreen: React.FC = () => {
         }
       );
 
+      console.log('✅ Сообщение добавлено в контекст:', context);
+
       // Получаем контекст для AI
       const aiContext = contextService.getAIContext(context);
+      console.log('🤖 AI контекст получен:', aiContext);
       
       // Определяем дополнительный контекст от приложения
       let additionalContext = '';
@@ -129,19 +152,29 @@ export const ChatScreen: React.FC = () => {
         additionalContext += `Текущая серия выполнения заданий: ${context.userProgress.streak} дней. `;
       }
 
-      const response = await chatAPI.sendMessage({
+      console.log('📋 Дополнительный контекст:', additionalContext);
+
+      const requestData = {
         apostleId: currentApostle.id,
         message: userMessage.content,
         context: [aiContext],
         userId: user.id,
         additionalContext: additionalContext || undefined,
-      });
+      };
+
+      console.log('🌐 Отправляем запрос к API:', requestData);
+
+      const response = await chatAPI.sendMessage(requestData);
+
+      console.log('📥 Получен ответ от API:', response);
 
       const apostleMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
         timestamp: new Date(response.timestamp),
       };
+
+      console.log('👨‍🏫 Создано сообщение апостола:', apostleMessage);
 
       // Добавляем ответ апостола в контекст
       await contextService.addMessage(
@@ -154,9 +187,17 @@ export const ChatScreen: React.FC = () => {
         }
       );
 
+      console.log('✅ Ответ апостола добавлен в контекст');
+
       setMessages(prev => [...prev, apostleMessage]);
+      console.log('✅ Сообщение апостола добавлено в UI');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ Ошибка при отправке сообщения:', error);
+      console.error('❌ Детали ошибки:', {
+        message: (error as Error)?.message,
+        stack: (error as Error)?.stack,
+        name: (error as Error)?.name
+      });
       
       // Fallback ответ при ошибке
       const errorMessage: ChatMessage = {
@@ -166,8 +207,10 @@ export const ChatScreen: React.FC = () => {
       };
       
       setMessages(prev => [...prev, errorMessage]);
+      console.log('🚨 Добавлено сообщение об ошибке в UI');
     } finally {
       setIsLoading(false);
+      console.log('🏁 Отправка завершена, loading=false');
     }
   };
 
@@ -268,7 +311,13 @@ export const ChatScreen: React.FC = () => {
                   : theme.colors.border,
               }
             ]}
-            onPress={sendMessage}
+            onPress={() => {
+              console.log('🖱️ Кнопка отправки нажата!');
+              console.log('🖱️ inputText:', inputText);
+              console.log('🖱️ isLoading:', isLoading);
+              console.log('🖱️ disabled:', !inputText.trim() || isLoading);
+              sendMessage();
+            }}
             disabled={!inputText.trim() || isLoading}
           >
             <Text style={styles.sendButtonText}>📤</Text>

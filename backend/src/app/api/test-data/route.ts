@@ -25,7 +25,6 @@ export async function POST() {
     // Создаем недельные задания для Петра
     const tasks = [
       {
-        id: 'peter-day1',
         title: 'Клятва самому себе',
         description: 'Выбери одну простую привычку и поклянись выполнять её 7 дней подряд. Это может быть утренняя молитва, зарядка или чтение духовной литературы.',
         day: 1,
@@ -37,7 +36,6 @@ export async function POST() {
         apostleId: 'peter'
       },
       {
-        id: 'peter-day2',
         title: 'Утренняя дисциплина',
         description: 'Встань на 15 минут раньше обычного и посвяти это время молитве или медитации. Начни строить фундамент дня с духовного камня.',
         day: 2,
@@ -50,14 +48,17 @@ export async function POST() {
       }
     ];
 
+    // Создаем задания используя правильную модель из схемы
+    const createdTasks = [];
     for (const task of tasks) {
-      await prisma.weeklyTask.create({ data: task });
+      const createdTask = await prisma.weeklyTask.create({ data: task });
+      createdTasks.push(createdTask);
     }
 
     return NextResponse.json({ 
       success: true, 
       message: 'Данные Петра успешно созданы',
-      data: { peter, tasksCount: tasks.length } 
+      data: { peter, tasks: createdTasks } 
     });
   } catch (error: any) {
     console.error('Test data creation error:', error);

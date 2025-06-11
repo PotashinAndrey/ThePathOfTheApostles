@@ -13,7 +13,7 @@ import { MissionCard } from '../components/MissionCard';
 
 export const HomeScreen: React.FC = () => {
   const { theme, mode, toggleTheme } = useThemeStore();
-  const { user, currentMission, streak, totalDays } = useUserStore();
+  const { user, currentMission, streak, totalDays, logout } = useUserStore();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -134,6 +134,19 @@ export const HomeScreen: React.FC = () => {
             <TouchableOpacity style={[styles.actionButton, { backgroundColor: theme.colors.gold }]}>
               <Text style={styles.actionIcon}>📊</Text>
               <Text style={styles.actionText}>Прогресс</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Dev Actions */}
+          <View style={styles.devActions}>
+            <TouchableOpacity 
+              style={[styles.logoutButton, { backgroundColor: '#FF6B6B' }]}
+              onPress={() => {
+                console.log('🚪 Выход из системы');
+                logout();
+              }}
+            >
+              <Text style={styles.logoutButtonText}>🚪 Выйти (Dev)</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -270,5 +283,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
+  },
+  devActions: {
+    marginTop: 16,
+  },
+  logoutButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

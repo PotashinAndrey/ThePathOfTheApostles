@@ -1,7 +1,7 @@
 // Конфигурация приложения
 export const CONFIG = {
-  // Временно используем константы вместо API
-  USE_OFFLINE_MODE: true,
+  // Включаем онлайн режим для работы с API
+  USE_OFFLINE_MODE: false,
   API_BASE_URL: __DEV__ 
     ? 'http://localhost:3000/api' 
     : 'https://your-production-url.com/api',

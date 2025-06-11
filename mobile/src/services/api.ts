@@ -62,10 +62,19 @@ interface MissionResponse {
 // API функции с fallback на константы
 export const chatAPI = {
   sendMessage: async (request: ChatRequest): Promise<ChatResponse> => {
+    console.log('🌐 chatAPI.sendMessage вызвана с параметрами:', request);
+    console.log('🔧 CONFIG.USE_OFFLINE_MODE:', CONFIG.USE_OFFLINE_MODE);
+    
     if (CONFIG.USE_OFFLINE_MODE) {
+      console.log('📴 Работаем в офлайн режиме');
       // Офлайн режим - генерируем ответ на основе константных данных
       const apostle = APOSTLES.find(a => a.id === request.apostleId);
-      if (!apostle) throw new Error('Апостол не найден');
+      if (!apostle) {
+        console.error('❌ Апостол не найден:', request.apostleId);
+        throw new Error('Апостол не найден');
+      }
+      
+      console.log('✅ Найден апостол:', apostle.name);
       
       // Простой ответ на основе ключевых слов
       let response = apostle.welcomeMessage || 'Я здесь, чтобы помочь тебе на пути.';
@@ -78,19 +87,41 @@ export const chatAPI = {
         response = "Мой совет прост: делай то, что должен делать, а не то, что хочется. Сила в постоянстве, а не в порывах.";
       }
       
-      return {
+      const result = {
         message: response,
         apostleId: request.apostleId,
         timestamp: new Date().toISOString()
       };
+      
+      console.log('📤 Возвращаем офлайн ответ:', result);
+      return result;
     }
     
+    console.log('🌐 Отправляем запрос к серверу');
     try {
+      console.log('📡 Делаем POST запрос к /chat');
+      console.log('🔗 URL:', `${api.defaults.baseURL}/chat`);
+      console.log('📦 Данные запроса:', request);
+      
       const response = await api.post('/chat', request);
+      
+      console.log('📥 Получен ответ от сервера:', response.data);
+      console.log('📊 Статус ответа:', response.status);
+      
       return response.data;
     } catch (error) {
-      console.warn('API недоступен, используем офлайн режим');
-      // Recursive call but с флагом offline
+      console.error('❌ Ошибка API запроса:', error);
+      console.error('❌ Детали ошибки API:', {
+        message: (error as any)?.message,
+        status: (error as any)?.response?.status,
+        statusText: (error as any)?.response?.statusText,
+        data: (error as any)?.response?.data,
+        url: (error as any)?.config?.url,
+        method: (error as any)?.config?.method
+      });
+      
+      console.warn('🔄 API недоступен, переключаемся на офлайн режим');
+      // Recursive call но с флагом offline
       const originalMode = CONFIG.USE_OFFLINE_MODE;
       CONFIG.USE_OFFLINE_MODE = true;
       const result = await chatAPI.sendMessage(request);
@@ -270,6 +301,77 @@ export const apostleAPI = {
       return [];
     }
   },
+};
+
+export const createOrUpdateUser = async (user: {
+  id: string;
+  email: string;
+  name: string;
+  currentApostleId?: string;
+}) => {
+  console.log('👤 API: Создаем/обновляем пользователя в backend:', user);
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        currentApostleId: user.currentApostleId,
+      }),
+    });
+
+    console.log('📡 API Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ API: Пользователь создан/обновлен:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ API Error в createOrUpdateUser:', error);
+    throw error;
+  }
+};
+
+export const getUser = async (userId: string) => {
+  console.log('👤 API: Получаем пользователя из backend:', userId);
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/users?id=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('📡 API Response status:', response.status);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log('👤 Пользователь не найден в backend');
+        return null;
+      }
+      const errorText = await response.text();
+      console.error('❌ API Error response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ API: Пользователь получен:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ API Error в getUser:', error);
+    throw error;
+  }
 };
 
 export type { ChatMessage, ChatRequest, ChatResponse, MissionRequest, MissionResponse, WeeklyTask }; 
