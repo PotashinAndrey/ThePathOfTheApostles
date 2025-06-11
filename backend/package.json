@@ -1,0 +1,33 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend API for The Path of Apostles mobile app",
+  "main": "server.js",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": ["next.js", "api", "spiritual", "ai", "apostles"],
+  "author": "Andry Potashin",
+  "license": "MIT",
+  "dependencies": {
+    "next": "^14.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "typescript": "^5.3.3",
+    "prisma": "^5.7.1",
+    "@prisma/client": "^5.7.1",
+    "openai": "^4.20.1",
+    "@supabase/supabase-js": "^2.38.5",
+    "cors": "^2.8.5",
+    "@types/cors": "^2.8.17"
+  }
+}

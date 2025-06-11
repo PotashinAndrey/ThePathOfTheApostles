@@ -1,0 +1,23 @@
+{
+  "name": "the-path-of-apostles",
+  "version": "1.0.0",
+  "description": "Духовно-развивающее мобильное приложение с AI-апостолами",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "backend"
+  ],
+  "scripts": {
+    "mobile": "cd mobile && npm start",
+    "backend": "cd backend && npm run dev",
+    "install:all": "npm install && cd mobile && npm install && cd ../backend && npm install",
+    "dev": "concurrently \"npm run backend\" \"npm run mobile\"",
+    "type-check": "cd mobile && npm run type-check && cd ../backend && npm run type-check"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["react-native", "spiritual", "ai", "apostles", "development"],
+  "author": "Andry Potashin",
+  "license": "MIT"
+} 

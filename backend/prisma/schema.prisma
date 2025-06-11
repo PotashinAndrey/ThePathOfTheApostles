@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  name             String
+  currentApostleId String?
+  joinDate         DateTime   @default(now())
+  lastActiveDate   DateTime   @default(now())
+  streak           Int        @default(0)
+  totalDays        Int        @default(0)
+  
+  // Relations
+  missions         Mission[]
+  chatMessages     ChatMessage[]
+  
+  @@map("users")
+}
+
+model Apostle {
+  id          String  @id
+  name        String
+  archetype   String
+  virtue      String
+  description String
+  personality String  @db.Text
+  color       String
+  icon        String
+  
+  // AI prompts and behavior
+  systemPrompt String @db.Text
+  welcomeMessage String @db.Text
+  
+  // Relations
+  missions    Mission[]
+  chatMessages ChatMessage[]
+  
+  @@map("apostles")
+}
+
+model Mission {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  tasks       String[] // Array of task descriptions
+  duration    Int      // Duration in days
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  isCompleted Boolean  @default(false)
+  progress    Int      @default(0) // 0-100
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apostleId   String
+  apostle     Apostle  @relation(fields: [apostleId], references: [id])
+  
+  @@map("missions")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  role      String   // 'user' or 'assistant'
+  timestamp DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apostleId String
+  apostle   Apostle  @relation(fields: [apostleId], references: [id])
+  
+  @@map("chat_messages")
+}
+
+model UserStats {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totalMissions   Int      @default(0)
+  completedMissions Int    @default(0)
+  averageProgress Float    @default(0)
+  longestStreak   Int      @default(0)
+  updatedAt       DateTime @updatedAt
+  
+  @@map("user_stats")
+} 
