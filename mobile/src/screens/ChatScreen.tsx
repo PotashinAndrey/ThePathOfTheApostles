@@ -9,19 +9,20 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ChatBubble } from '../components/ChatBubble';
-import { ChatMessage, chatAPI } from '../services/api';
+import { ChatMessage, chatAPI, chatAPIWithAuth, ChatRequest } from '../services/api';
 import { contextService, ContextMessage } from '../services/contextService';
 import { APOSTLES } from '../constants/apostles';
 
 export const ChatScreen: React.FC = () => {
   const { theme } = useThemeStore();
-  const { user } = useUserStore();
+  const { user, totalDays, token } = useUserStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputText, setInputText] = useState('');
+  const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -93,124 +94,82 @@ export const ChatScreen: React.FC = () => {
   };
 
   const sendMessage = async () => {
-    console.log('🔥 sendMessage вызвана');
-    console.log('📝 inputText:', inputText);
-    console.log('👤 currentApostle:', currentApostle?.id);
-    console.log('⏳ isLoading:', isLoading);
-    console.log('🆔 user?.id:', user?.id);
-    
-    if (!inputText.trim() || !currentApostle || isLoading || !user?.id) {
-      console.log('❌ Условие проверки не прошло, выходим из функции');
-      console.log('- inputText.trim():', !!inputText.trim());
-      console.log('- currentApostle:', !!currentApostle);
-      console.log('- !isLoading:', !isLoading);
-      console.log('- user?.id:', !!user?.id);
+    console.log('📤 sendMessage вызвана');
+    console.log('👤 Пользователь:', user?.email || 'не найден');
+    console.log('🎫 Токен:', !!token ? 'есть' : 'отсутствует');
+    console.log('�� Сообщение:', inputMessage);
+    console.log('👥 Апостол:', user?.currentApostle?.name || 'не выбран');
+
+    if (!user?.id) {
+      console.error('❌ Пользователь не авторизован');
+      Alert.alert('Ошибка', 'Пользователь не авторизован');
       return;
     }
 
-    console.log('✅ Все проверки прошли, начинаем отправку сообщения');
+    if (!token) {
+      console.error('❌ Токен авторизации отсутствует');
+      Alert.alert('Ошибка', 'Требуется повторная авторизация');
+      return;
+    }
+
+    if (!inputMessage.trim()) {
+      console.log('⚠️ Пустое сообщение, отмена отправки');
+      return;
+    }
+
+    if (!user.currentApostle) {
+      console.error('❌ Апостол не выбран');
+      Alert.alert('Ошибка', 'Апостол не выбран');
+      return;
+    }
+
+    console.log('✅ Все проверки пройдены, отправляем сообщение');
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: inputText.trim(),
+      content: inputMessage.trim(),
       timestamp: new Date(),
     };
 
-    console.log('📨 Создано пользовательское сообщение:', userMessage);
+    console.log('📝 Создано пользовательское сообщение:', userMessage);
 
     setMessages(prev => [...prev, userMessage]);
-    setInputText('');
+    setInputMessage('');
     setIsLoading(true);
 
-    console.log('🔄 Состояние обновлено: сообщение добавлено, input очищен, loading=true');
-
     try {
-      console.log('🔄 Добавляем сообщение в контекст...');
-      // Добавляем сообщение пользователя в контекст
-      const context = await contextService.addMessage(
-        user.id,
-        currentApostle.id,
-        {
-          role: 'user',
-          content: userMessage.content,
-          timestamp: userMessage.timestamp,
-        }
-      );
-
-      console.log('✅ Сообщение добавлено в контекст:', context);
-
-      // Получаем контекст для AI
-      const aiContext = contextService.getAIContext(context);
-      console.log('🤖 AI контекст получен:', aiContext);
+      console.log('🌐 Отправляем запрос к API...');
       
-      // Определяем дополнительный контекст от приложения
-      let additionalContext = '';
-      if (context.userProgress?.currentTask) {
-        additionalContext += `Пользователь сейчас выполняет задание: ${context.userProgress.currentTask}. `;
-      }
-      if (context.userProgress && context.userProgress.streak > 0) {
-        additionalContext += `Текущая серия выполнения заданий: ${context.userProgress.streak} дней. `;
-      }
-
-      console.log('📋 Дополнительный контекст:', additionalContext);
-
-      const requestData = {
-        apostleId: currentApostle.id,
+      const request: ChatRequest = {
+        apostleId: user.currentApostle.id,
         message: userMessage.content,
-        context: [aiContext],
-        userId: user.id,
-        additionalContext: additionalContext || undefined,
+        context: messages.slice(-5).map(m => `${m.role}: ${m.content}`),
+        additionalContext: `Пользователь: ${user.name}. Текущий день пути: ${totalDays + 1}.`
       };
 
-      console.log('🌐 Отправляем запрос к API:', requestData);
+      console.log('📦 Параметры запроса:', request);
 
-      const response = await chatAPI.sendMessage(requestData);
+      const response = await chatAPIWithAuth.sendMessage(request, token);
+      
+      console.log('✅ Получен ответ от API:', response);
 
-      console.log('📥 Получен ответ от API:', response);
-
-      const apostleMessage: ChatMessage = {
+      const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
         timestamp: new Date(response.timestamp),
       };
 
-      console.log('👨‍🏫 Создано сообщение апостола:', apostleMessage);
+      console.log('🤖 Создано сообщение ассистента:', assistantMessage);
 
-      // Добавляем ответ апостола в контекст
-      await contextService.addMessage(
-        user.id,
-        currentApostle.id,
-        {
-          role: 'assistant',
-          content: apostleMessage.content,
-          timestamp: apostleMessage.timestamp,
-        }
-      );
+      setMessages(prev => [...prev, assistantMessage]);
+      console.log('✅ Сообщение добавлено в чат');
 
-      console.log('✅ Ответ апостола добавлен в контекст');
-
-      setMessages(prev => [...prev, apostleMessage]);
-      console.log('✅ Сообщение апостола добавлено в UI');
     } catch (error) {
-      console.error('❌ Ошибка при отправке сообщения:', error);
-      console.error('❌ Детали ошибки:', {
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        name: (error as Error)?.name
-      });
-      
-      // Fallback ответ при ошибке
-      const errorMessage: ChatMessage = {
-        role: 'assistant',
-        content: 'Прости, у меня временные трудности с ответом. Попробуй задать вопрос позже.',
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-      console.log('🚨 Добавлено сообщение об ошибке в UI');
+      console.error('❌ Ошибка отправки сообщения:', error);
+      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
     } finally {
       setIsLoading(false);
-      console.log('🏁 Отправка завершена, loading=false');
+      console.log('🏁 sendMessage завершена');
     }
   };
 
@@ -294,8 +253,8 @@ export const ChatScreen: React.FC = () => {
                 borderColor: theme.colors.border,
               }
             ]}
-            value={inputText}
-            onChangeText={setInputText}
+            value={inputMessage}
+            onChangeText={setInputMessage}
             placeholder="Напишите сообщение..."
             placeholderTextColor={theme.colors.textSecondary}
             multiline
@@ -306,19 +265,19 @@ export const ChatScreen: React.FC = () => {
             style={[
               styles.sendButton,
               {
-                backgroundColor: inputText.trim() && !isLoading 
+                backgroundColor: inputMessage.trim() && !isLoading 
                   ? currentApostle.color 
                   : theme.colors.border,
               }
             ]}
             onPress={() => {
               console.log('🖱️ Кнопка отправки нажата!');
-              console.log('🖱️ inputText:', inputText);
+              console.log('🖱️ inputMessage:', inputMessage);
               console.log('🖱️ isLoading:', isLoading);
-              console.log('🖱️ disabled:', !inputText.trim() || isLoading);
+              console.log('🖱️ disabled:', !inputMessage.trim() || isLoading);
               sendMessage();
             }}
-            disabled={!inputText.trim() || isLoading}
+            disabled={!inputMessage.trim() || isLoading}
           >
             <Text style={styles.sendButtonText}>📤</Text>
           </TouchableOpacity>

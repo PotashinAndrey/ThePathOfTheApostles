@@ -12,6 +12,8 @@ model User {
   id               String        @id @default(cuid())
   email            String        @unique
   name             String
+  passwordHash     String        // Хешированный пароль
+  salt             String        // Соль для хеширования
   currentApostleId String?
   joinDate         DateTime      @default(now())
   lastActiveDate   DateTime      @default(now())

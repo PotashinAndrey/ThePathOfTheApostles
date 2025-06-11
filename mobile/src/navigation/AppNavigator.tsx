@@ -96,18 +96,18 @@ const MainTabs: React.FC = () => {
 
 export const AppNavigator: React.FC = () => {
   const { theme } = useThemeStore();
-  const { user } = useUserStore();
+  const { user, isAuthenticated } = useUserStore();
 
   console.log('🔐 AppNavigator: Проверка авторизации');
-  console.log('👤 Текущий пользователь:', user);
+  console.log('👤 Текущий пользователь:', user?.email || 'не авторизован');
   console.log('🔧 Platform:', Platform.OS);
 
-  // Безопасная проверка пользователя
-  const isAuthenticated = user && user.id;
-  console.log('✅ Пользователь авторизован:', !!isAuthenticated);
+  // Проверяем авторизацию через новую систему
+  const userIsAuthenticated = isAuthenticated();
+  console.log('✅ Пользователь авторизован:', userIsAuthenticated);
   
   // Debug логи
-  if (isAuthenticated) {
+  if (userIsAuthenticated) {
     console.log('📱 Рендерим MainTabs для авторизованного пользователя');
   } else {
     console.log('🔐 Рендерим AuthScreen для неавторизованного пользователя');
@@ -153,7 +153,7 @@ export const AppNavigator: React.FC = () => {
           headerShown: false,
         }}
       >
-        {isAuthenticated ? (
+        {userIsAuthenticated ? (
           <Stack.Screen name="MainTabs" component={MainTabs} />
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />

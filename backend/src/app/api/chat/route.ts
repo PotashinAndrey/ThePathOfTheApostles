@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { generateApostleResponse } from '../../../lib/openai';
+import { requireAuth } from '../../../lib/simpleAuth';
 
 export async function POST(request: NextRequest) {
   console.log('🚀 Backend API /chat получил запрос');
   
   try {
+    // Проверяем авторизацию
+    const authUser = await requireAuth(request);
+    if (!authUser) {
+      console.error('❌ Пользователь не авторизован');
+      return NextResponse.json(
+        { error: 'Требуется авторизация' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     console.log('📦 Тело запроса:', body);
+    console.log('👤 Авторизованный пользователь:', authUser.email);
     
-    const { apostleId, message, context, userId, additionalContext } = body;
+    const { apostleId, message, context, additionalContext } = body;
 
     console.log('🔍 Параметры запроса:');
     console.log('- apostleId:', apostleId);
     console.log('- message:', message);
     console.log('- context:', context);
-    console.log('- userId:', userId);
+    console.log('- userId (из токена):', authUser.id);
     console.log('- additionalContext:', additionalContext);
 
     if (!apostleId || !message) {
@@ -67,67 +79,36 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Получен ответ от OpenAI:', aiResponse);
 
-    // Save chat message if userId is provided
-    if (userId) {
-      console.log('💾 Сохраняем сообщения в базу данных...');
-      
-      // Сначала проверяем/создаем пользователя в базе данных
-      console.log('👤 Проверяем существование пользователя в БД:', userId);
-      
-      let user = await prisma.user.findUnique({
-        where: { id: userId }
-      });
-      
-      if (!user) {
-        console.log('🆕 Пользователь не найден, создаем нового...');
-        
-        // Извлекаем информацию из userId (dev-user-timestamp или user-timestamp-random)
-        const isDevUser = userId.startsWith('dev-user-');
-        const email = isDevUser ? 'dev@apostles.app' : `user-${Date.now()}@apostles.app`;
-        const name = isDevUser ? 'Разработчик' : 'Пользователь';
-        
-        user = await prisma.user.create({
-          data: {
-            id: userId,
-            email: email,
-            name: name,
-            currentApostleId: apostleId, // Устанавливаем текущего апостола
-          }
-        });
-        
-        console.log('✅ Пользователь создан в БД:', user);
-      } else {
-        console.log('✅ Пользователь найден в БД:', user.name);
-        
-        // Обновляем lastActiveDate
-        await prisma.user.update({
-          where: { id: userId },
-          data: { 
-            lastActiveDate: new Date(),
-            currentApostleId: apostleId // Обновляем текущего апостола
-          }
-        });
+    // Сохраняем сообщения в базу данных
+    console.log('💾 Сохраняем сообщения в базу данных...');
+    
+    // Обновляем currentApostleId пользователя
+    await prisma.user.update({
+      where: { id: authUser.id },
+      data: { 
+        lastActiveDate: new Date(),
+        currentApostleId: apostleId
       }
-      
-      // Теперь сохраняем сообщения
-      await prisma.chatMessage.createMany({
-        data: [
-          {
-            userId,
-            apostleId,
-            role: 'user',
-            content: message,
-          },
-          {
-            userId,
-            apostleId,
-            role: 'assistant',
-            content: aiResponse,
-          },
-        ],
-      });
-      console.log('✅ Сообщения сохранены в базе данных');
-    }
+    });
+
+    // Сохраняем сообщения
+    await prisma.chatMessage.createMany({
+      data: [
+        {
+          userId: authUser.id,
+          apostleId,
+          role: 'user',
+          content: message,
+        },
+        {
+          userId: authUser.id,
+          apostleId,
+          role: 'assistant',
+          content: aiResponse,
+        },
+      ],
+    });
+    console.log('✅ Сообщения сохранены в базе данных');
 
     const response = {
       message: aiResponse,

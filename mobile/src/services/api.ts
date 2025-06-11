@@ -374,4 +374,136 @@ export const getUser = async (userId: string) => {
   }
 };
 
-export type { ChatMessage, ChatRequest, ChatResponse, MissionRequest, MissionResponse, WeeklyTask }; 
+export type { ChatMessage, ChatRequest, ChatResponse, MissionRequest, MissionResponse, WeeklyTask };
+
+// Новые функции для авторизации
+export const authAPI = {
+  register: async (email: string, password: string, name: string) => {
+    console.log('📝 API: Регистрация пользователя:', { email, name });
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      console.log('📡 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ API: Пользователь зарегистрирован:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ API Error в register:', error);
+      throw error;
+    }
+  },
+
+  login: async (email: string, password: string) => {
+    console.log('🔐 API: Вход пользователя:', email);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      console.log('📡 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ API: Пользователь авторизован:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ API Error в login:', error);
+      throw error;
+    }
+  },
+};
+
+// Обновляем chatAPI для работы с токенами
+export const chatAPIWithAuth = {
+  sendMessage: async (request: ChatRequest, token?: string): Promise<ChatResponse> => {
+    console.log('🌐 chatAPIWithAuth.sendMessage вызвана с параметрами:', request);
+    console.log('🔧 CONFIG.USE_OFFLINE_MODE:', CONFIG.USE_OFFLINE_MODE);
+    console.log('🎫 Токен предоставлен:', !!token);
+    
+    if (CONFIG.USE_OFFLINE_MODE) {
+      console.log('📴 Работаем в офлайн режиме');
+      // Используем старую логику офлайн режима
+      return chatAPI.sendMessage(request);
+    }
+    
+    console.log('🌐 Отправляем запрос к серверу с авторизацией');
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('🎫 Добавлен заголовок Authorization');
+      }
+      
+      console.log('📡 Делаем POST запрос к /chat');
+      console.log('🔗 URL:', `${API_BASE_URL}/chat`);
+      console.log('📦 Данные запроса:', { ...request, userId: undefined }); // Убираем userId из логов
+      
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          apostleId: request.apostleId,
+          message: request.message,
+          context: request.context,
+          additionalContext: request.additionalContext,
+          // Не передаем userId - он будет извлечен из токена
+        }),
+      });
+      
+      console.log('📥 Получен ответ от сервера, статус:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 Данные ответа:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Ошибка API запроса:', error);
+      console.error('❌ Детали ошибки API:', {
+        message: (error as any)?.message,
+        status: (error as any)?.response?.status,
+        statusText: (error as any)?.response?.statusText,
+      });
+      
+      console.warn('🔄 API недоступен, переключаемся на офлайн режим');
+      // Fallback на офлайн режим
+      const originalMode = CONFIG.USE_OFFLINE_MODE;
+      CONFIG.USE_OFFLINE_MODE = true;
+      const result = await chatAPI.sendMessage(request);
+      CONFIG.USE_OFFLINE_MODE = originalMode;
+      return result;
+    }
+  },
+}; 

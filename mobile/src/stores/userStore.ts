@@ -25,11 +25,13 @@ interface Mission {
 
 interface UserState {
   user: User | null;
+  token: string | null; // JWT токен
   currentMission: Mission | null;
   missions: Mission[];
   totalDays: number;
   streak: number;
-  setUser: (user: User) => void;
+  setUser: (user: User, token?: string) => void;
+  setToken: (token: string) => void;
   setCurrentApostle: (apostle: Apostle) => void;
   setCurrentMission: (mission: Mission) => void;
   completeMission: (missionId: string) => void;
@@ -38,20 +40,31 @@ interface UserState {
   incrementStreak: () => void;
   resetStreak: () => void;
   logout: () => void;
+  isAuthenticated: () => boolean;
 }
 
 export const useUserStore = create<UserState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      token: null,
       currentMission: null,
       missions: [],
       totalDays: 0,
       streak: 0,
       
-      setUser: (user: User) => {
+      setUser: (user: User, token?: string) => {
         console.log('💾 Сохраняем пользователя в store:', user);
-        set(() => ({ user }));
+        console.log('🎫 Токен предоставлен:', !!token);
+        set(() => ({ 
+          user,
+          ...(token && { token })
+        }));
+      },
+
+      setToken: (token: string) => {
+        console.log('🎫 Сохраняем токен в store');
+        set(() => ({ token }));
       },
       
       setCurrentApostle: (apostle: Apostle) =>
@@ -104,11 +117,20 @@ export const useUserStore = create<UserState>()(
         console.log('🚪 Выход пользователя из системы');
         set(() => ({
           user: null,
+          token: null,
           currentMission: null,
           missions: [],
           totalDays: 0,
           streak: 0,
         }));
+      },
+
+      isAuthenticated: () => {
+        const state = get();
+        const hasValidToken = !!state.token;
+        const hasUser = !!state.user;
+        console.log('🔐 Проверка авторизации:', { hasValidToken, hasUser });
+        return hasValidToken && hasUser;
       },
     }),
     {
