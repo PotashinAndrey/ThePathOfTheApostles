@@ -1,31 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { 
+  validateEmail, 
+  validatePassword, 
+  createUserWithProgress, 
+  generateToken 
+} from '../../../../lib/auth';
 import { prisma } from '../../../../lib/prisma';
-import bcrypt from 'bcryptjs';
+import { RegisterRequest, AuthResponse, ApiResponse } from '../../../../types/api';
 
 export async function POST(request: NextRequest) {
   console.log('🚀 Backend API /auth/register получил запрос');
   
   try {
-    const body = await request.json();
-    console.log('📦 Тело запроса регистрации:', { ...body, password: '[СКРЫТО]' });
+    const body: RegisterRequest = await request.json();
+    console.log('📦 Тело запроса регистрации:', { ...body, password: '[СКРЫТО]', confirmPassword: '[СКРЫТО]' });
     
-    const { email, password, name } = body;
+    const { email, password, confirmPassword, name } = body;
 
     // Валидация входных данных
-    if (!email || !password || !name) {
+    if (!email || !password || !confirmPassword || !name) {
       console.error('❌ Недостает обязательных параметров');
-      return NextResponse.json(
-        { error: 'Недостает обязательных параметров: email, password, name' },
-        { status: 400 }
-      );
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Недостает обязательных параметров: email, password, confirmPassword, name'
+      }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      console.error('❌ Пароль слишком короткий');
-      return NextResponse.json(
-        { error: 'Пароль должен содержать минимум 6 символов' },
-        { status: 400 }
-      );
+    // Проверка совпадения паролей
+    if (password !== confirmPassword) {
+      console.error('❌ Пароли не совпадают');
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Пароли не совпадают'
+      }, { status: 400 });
+    }
+
+    // Валидация email
+    if (!validateEmail(email)) {
+      console.error('❌ Невалидный email');
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Невалидный email адрес'
+      }, { status: 400 });
+    }
+
+    // Валидация пароля
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      console.error('❌ Невалидный пароль:', passwordValidation.errors);
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: passwordValidation.errors.join(', ')
+      }, { status: 400 });
+    }
+
+    // Валидация имени
+    if (name.length < 2 || name.length > 50) {
+      console.error('❌ Невалидное имя');
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Имя должно содержать от 2 до 50 символов'
+      }, { status: 400 });
     }
 
     // Проверяем что пользователь с таким email не существует
@@ -36,51 +71,51 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       console.error('❌ Пользователь с таким email уже существует');
-      return NextResponse.json(
-        { error: 'Пользователь с таким email уже существует' },
-        { status: 409 }
-      );
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Пользователь с таким email уже существует'
+      }, { status: 409 });
     }
 
-    // Хешируем пароль
-    console.log('🔐 Хеширование пароля...');
-    const saltRounds = 12;
-    const salt = await bcrypt.genSalt(saltRounds);
-    const passwordHash = await bcrypt.hash(password, salt);
-    console.log('✅ Пароль захеширован');
-
-    // Создаем пользователя
+    // Создаем пользователя с прогрессом
     console.log('👤 Создание пользователя в БД...');
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        passwordHash,
-        salt,
-        currentApostleId: 'peter', // По умолчанию назначаем Петра
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        currentApostleId: true,
-        joinDate: true,
-      }
+    const user = await createUserWithProgress({
+      email,
+      name,
+      password
     });
 
     console.log('✅ Пользователь создан:', user.email);
 
-    // Возвращаем данные пользователя (без пароля)
-    return NextResponse.json({
-      user,
+    // Генерируем токен
+    const token = generateToken(user);
+
+    // Возвращаем данные пользователя
+    const response: ApiResponse<AuthResponse> = {
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          joinDate: user.joinDate,
+          lastActiveDate: user.joinDate,
+          streak: 0,
+          status: user.status,
+        },
+        message: 'Пользователь успешно зарегистрирован'
+      },
       message: 'Пользователь успешно зарегистрирован'
-    }, { status: 201 });
+    };
+
+    return NextResponse.json(response, { status: 201 });
 
   } catch (error) {
     console.error('❌ Ошибка регистрации:', error);
-    return NextResponse.json(
-      { error: 'Внутренняя ошибка сервера' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse>({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    }, { status: 500 });
   }
 } 

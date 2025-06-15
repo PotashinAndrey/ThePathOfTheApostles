@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '../../../lib/auth';
-import { prisma } from '../../../lib/prisma';
-import { UserResponse, ApiResponse } from '../../../types/api';
+import { requireAuth } from '../../../../lib/auth';
+import { prisma } from '../../../../lib/prisma';
+import { UserProfileResponse, ApiResponse } from '../../../../types/api';
 
-// GET /api/users?id=userId - получить пользователя
 export async function GET(request: NextRequest) {
-  console.log('🚀 Backend API /users GET получил запрос');
+  console.log('🚀 Backend API /user/profile получил запрос');
   
   try {
     // Проверяем авторизацию
@@ -18,44 +17,34 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('id') || authUser.id;
-    
-    console.log('🔍 Запрос пользователя с ID:', userId);
+    console.log('👤 Получение профиля для пользователя:', authUser.email);
 
-    // Проверяем права доступа - пользователь может получить только свои данные
-    if (userId !== authUser.id) {
-      console.error('❌ Нет прав для просмотра данных другого пользователя');
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error: 'Нет прав для просмотра данных другого пользователя'
-      }, { status: 403 });
-    }
-
+    // Получаем пользователя с базовой информацией
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: authUser.id },
       select: {
         id: true,
         name: true,
         email: true,
         joinDate: true,
-        currentSubscription: true,
         lastActiveDate: true,
         streak: true,
         avatar: true,
-        status: true
+        status: true,
+        currentSubscription: true
       }
     });
 
     if (!user) {
-      console.log('👤 Пользователь не найден:', userId);
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'Пользователь не найден'
       }, { status: 404 });
     }
 
-    const userResponse: UserResponse = {
+    // Временно возвращаем базовую информацию
+    // В будущем здесь будет подсчет статистики из связанных таблиц
+    const profile: UserProfileResponse = {
       id: user.id,
       name: user.name,
       email: user.email,
@@ -64,17 +53,22 @@ export async function GET(request: NextRequest) {
       lastActiveDate: user.lastActiveDate,
       streak: user.streak,
       avatar: user.avatar,
-      status: user.status
+      status: user.status,
+      totalChallengesCompleted: 0, // Заглушка, потом подсчитаем
+      totalPathsCompleted: 0, // Заглушка, потом подсчитаем
+      achievements: [], // Заглушка, потом получим из БД
+      currentPath: undefined // Заглушка, потом получим из БД
     };
 
-    console.log('✅ Пользователь найден:', user.name);
-    return NextResponse.json<ApiResponse<UserResponse>>({
-      success: true,
-      data: userResponse
-    });
+    console.log('✅ Профиль пользователя получен');
     
+    return NextResponse.json<ApiResponse<UserProfileResponse>>({
+      success: true,
+      data: profile
+    });
+
   } catch (error) {
-    console.error('❌ Ошибка в GET /users:', error);
+    console.error('❌ Ошибка получения профиля:', error);
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'Внутренняя ошибка сервера'
@@ -82,9 +76,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/users - обновить данные пользователя
-export async function POST(request: NextRequest) {
-  console.log('🚀 Backend API /users POST получил запрос');
+// PUT /api/user/profile - обновить профиль
+export async function PUT(request: NextRequest) {
+  console.log('🚀 Backend API /user/profile PUT получил запрос');
   
   try {
     // Проверяем авторизацию
@@ -98,8 +92,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    console.log('📦 Тело запроса:', body);
-    
     const { name, avatar } = body;
 
     // Валидация
@@ -110,50 +102,53 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('👤 Обновляем пользователя:', authUser.id);
-
-    // Обновляем пользователя
-    const user = await prisma.user.update({
+    // Обновляем профиль
+    const updatedUser = await prisma.user.update({
       where: { id: authUser.id },
       data: {
         ...(name && { name }),
         ...(avatar && { avatar }),
-        lastActiveDate: new Date(),
+        lastActiveDate: new Date()
       },
       select: {
         id: true,
         name: true,
         email: true,
         joinDate: true,
-        currentSubscription: true,
         lastActiveDate: true,
         streak: true,
         avatar: true,
-        status: true
+        status: true,
+        currentSubscription: true
       }
     });
 
-    const userResponse: UserResponse = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      joinDate: user.joinDate,
-      currentSubscription: user.currentSubscription,
-      lastActiveDate: user.lastActiveDate,
-      streak: user.streak,
-      avatar: user.avatar,
-      status: user.status
+    const profile: UserProfileResponse = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      joinDate: updatedUser.joinDate,
+      currentSubscription: updatedUser.currentSubscription,
+      lastActiveDate: updatedUser.lastActiveDate,
+      streak: updatedUser.streak,
+      avatar: updatedUser.avatar,
+      status: updatedUser.status,
+      totalChallengesCompleted: 0,
+      totalPathsCompleted: 0,
+      achievements: [],
+      currentPath: undefined
     };
 
-    console.log('✅ Пользователь обновлен:', user);
-    return NextResponse.json<ApiResponse<UserResponse>>({
-      success: true,
-      data: userResponse,
-      message: 'Данные пользователя обновлены'
-    });
+    console.log('✅ Профиль пользователя обновлен');
     
+    return NextResponse.json<ApiResponse<UserProfileResponse>>({
+      success: true,
+      data: profile,
+      message: 'Профиль успешно обновлен'
+    });
+
   } catch (error) {
-    console.error('❌ Ошибка в POST /users:', error);
+    console.error('❌ Ошибка обновления профиля:', error);
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'Внутренняя ошибка сервера'

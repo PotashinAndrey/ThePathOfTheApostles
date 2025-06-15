@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
-import bcrypt from 'bcryptjs';
-
-// Простая генерация JWT без сложных типов
-const generateSimpleToken = (userId: string, email: string, name: string): string => {
-  const payload = {
-    userId,
-    email,
-    name,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 дней
-  };
-  
-  // Простое кодирование в base64 (для разработки)
-  const token = Buffer.from(JSON.stringify(payload)).toString('base64');
-  return token;
-};
+import { generateToken, verifyPassword } from '../../../../lib/auth';
+import { LoginRequest, AuthResponse, ApiResponse } from '../../../../types/api';
 
 export async function POST(request: NextRequest) {
   console.log('🚀 Backend API /auth/login получил запрос');
   
   try {
-    const body = await request.json();
+    const body: LoginRequest = await request.json();
     console.log('📦 Тело запроса входа:', { ...body, password: '[СКРЫТО]' });
     
     const { email, password } = body;
@@ -29,10 +15,10 @@ export async function POST(request: NextRequest) {
     // Валидация входных данных
     if (!email || !password) {
       console.error('❌ Недостает обязательных параметров');
-      return NextResponse.json(
-        { error: 'Недостает обязательных параметров: email, password' },
-        { status: 400 }
-      );
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Недостает обязательных параметров: email, password'
+      }, { status: 400 });
     }
 
     // Ищем пользователя по email
@@ -45,29 +31,41 @@ export async function POST(request: NextRequest) {
         name: true,
         passwordHash: true,
         salt: true,
-        currentApostleId: true,
+        status: true,
+        joinDate: true,
+        lastActiveDate: true,
+        streak: true,
+        avatar: true,
+        currentSubscription: true
       }
     });
 
     if (!user) {
       console.error('❌ Пользователь не найден');
-      return NextResponse.json(
-        { error: 'Неверный email или пароль' },
-        { status: 401 }
-      );
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Неверный email или пароль'
+      }, { status: 401 });
+    }
+
+    if (user.status !== 'ACTIVE') {
+      console.error('❌ Аккаунт заблокирован');
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Аккаунт заблокирован'
+      }, { status: 401 });
     }
 
     // Проверяем пароль
     console.log('🔐 Проверка пароля...');
-    const hashedInput = await bcrypt.hash(password, user.salt);
-    const isPasswordValid = hashedInput === user.passwordHash;
+    const isPasswordValid = await verifyPassword(password, user.passwordHash, user.salt);
 
     if (!isPasswordValid) {
       console.error('❌ Неверный пароль');
-      return NextResponse.json(
-        { error: 'Неверный email или пароль' },
-        { status: 401 }
-      );
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Неверный email или пароль'
+      }, { status: 401 });
     }
 
     console.log('✅ Пароль верный');
@@ -80,27 +78,38 @@ export async function POST(request: NextRequest) {
 
     // Генерируем токен
     console.log('🎫 Генерация токена...');
-    const token = generateSimpleToken(user.id, user.email, user.name);
+    const token = generateToken(user);
 
     console.log('✅ Пользователь успешно авторизован:', user.email);
 
     // Возвращаем токен и данные пользователя
-    return NextResponse.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        currentApostleId: user.currentApostleId,
+    const response: ApiResponse<AuthResponse> = {
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          joinDate: user.joinDate,
+          currentSubscription: user.currentSubscription,
+          lastActiveDate: user.lastActiveDate,
+          streak: user.streak,
+          avatar: user.avatar,
+          status: user.status
+        },
+        message: 'Успешный вход в систему'
       },
       message: 'Успешный вход в систему'
-    });
+    };
+
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('❌ Ошибка входа:', error);
-    return NextResponse.json(
-      { error: 'Внутренняя ошибка сервера' },
-      { status: 500 }
-    );
+    return NextResponse.json<ApiResponse>({
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    }, { status: 500 });
   }
 } 
