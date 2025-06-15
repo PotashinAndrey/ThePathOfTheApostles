@@ -11,13 +11,14 @@ import {
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { APOSTLES } from '../constants/apostles';
-import { authAPI } from '../services/api';
+import apiService from '../services/apiNew';
 
 export const AuthScreen: React.FC = () => {
   const { theme } = useThemeStore();
   const { setUser } = useUserStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -38,8 +39,18 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
+    if (isRegistering && !confirmPassword.trim()) {
+      Alert.alert('Ошибка', 'Подтвердите пароль');
+      return;
+    }
+
     if (password.length < 6) {
       Alert.alert('Ошибка', 'Пароль должен содержать минимум 6 символов');
+      return;
+    }
+
+    if (isRegistering && password !== confirmPassword) {
+      Alert.alert('Ошибка', 'Пароли не совпадают');
       return;
     }
 
@@ -51,27 +62,31 @@ export const AuthScreen: React.FC = () => {
       
       if (isRegistering) {
         console.log('📝 Регистрация нового пользователя');
-        response = await authAPI.register(email, password, name);
+        response = await apiService.register({
+          email,
+          password,
+          confirmPassword,
+          name
+        });
         
-        // После успешной регистрации сразу логинимся
-        console.log('🔐 Автоматический вход после регистрации');
-        response = await authAPI.login(email, password);
+        // После успешной регистрации уже авторизованы (получаем токен)
+        console.log('✅ Регистрация успешна с автоматическим входом');
       } else {
         console.log('🔐 Вход существующего пользователя');
-        response = await authAPI.login(email, password);
+        response = await apiService.login({ email, password });
       }
 
       console.log('✅ Авторизация успешна:', response);
 
-      // Создаем объект пользователя с апостолом
-      const currentApostle = APOSTLES.find(a => a.id === response.user.currentApostleId) || APOSTLES[0];
+      // Создаем объект пользователя с апостолом (по умолчанию первый)
+      const currentApostle = APOSTLES[0];
       
       const user = {
         id: response.user.id,
         email: response.user.email,
         name: response.user.name,
         currentApostle,
-        joinDate: new Date(response.user.joinDate || Date.now()),
+        joinDate: new Date(response.user.joinDate),
         lastActiveDate: new Date(),
       };
 
@@ -105,10 +120,12 @@ export const AuthScreen: React.FC = () => {
       console.log('📝 Создаем dev пользователя:', devEmail);
       
       // Регистрируем dev пользователя
-      await authAPI.register(devEmail, devPassword, devName);
-      
-      // Логинимся
-      const response = await authAPI.login(devEmail, devPassword);
+      const response = await apiService.register({
+        email: devEmail,
+        password: devPassword,
+        confirmPassword: devPassword,
+        name: devName
+      });
       
       // Создаем объект пользователя
       const currentApostle = APOSTLES.find(a => a.id === 'peter') || APOSTLES[0];
@@ -184,38 +201,57 @@ export const AuthScreen: React.FC = () => {
           />
 
           {isRegistering && (
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text,
-                }
-              ]}
-              placeholder="Имя"
-              placeholderTextColor={theme.colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-              editable={!isLoading}
-            />
+            <>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    color: theme.colors.text,
+                  }
+                ]}
+                placeholder="Подтвердите пароль"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                editable={!isLoading}
+              />
+              
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    color: theme.colors.text,
+                  }
+                ]}
+                placeholder="Имя"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={name}
+                onChangeText={setName}
+                editable={!isLoading}
+              />
+            </>
           )}
 
           <TouchableOpacity
             style={[
               styles.authButton,
               {
-                backgroundColor: email.trim() && password.trim() && (!isRegistering || name.trim())
+                backgroundColor: email.trim() && password.trim() && (!isRegistering || (name.trim() && confirmPassword.trim()))
                   ? '#4ECDC4'
                   : theme.colors.border,
               }
             ]}
             onPress={handleAuth}
-            disabled={!email.trim() || !password.trim() || (isRegistering && !name.trim()) || isLoading}
+            disabled={!email.trim() || !password.trim() || (isRegistering && (!name.trim() || !confirmPassword.trim())) || isLoading}
           >
             <Text style={[
               styles.authButtonText,
-              { color: email.trim() && password.trim() && (!isRegistering || name.trim()) ? 'white' : theme.colors.textSecondary }
+              { color: email.trim() && password.trim() && (!isRegistering || (name.trim() && confirmPassword.trim())) ? 'white' : theme.colors.textSecondary }
             ]}>
               {isLoading 
                 ? '⏳ Обработка...' 
@@ -228,7 +264,10 @@ export const AuthScreen: React.FC = () => {
 
           <TouchableOpacity
             style={styles.switchMode}
-            onPress={() => setIsRegistering(!isRegistering)}
+            onPress={() => {
+              setIsRegistering(!isRegistering);
+              setConfirmPassword(''); // Очищаем поле подтверждения пароля при переключении
+            }}
             disabled={isLoading}
           >
             <Text style={[styles.switchModeText, { color: theme.colors.primary }]}>

@@ -13,7 +13,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  currentApostleId?: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 }
 
 // Простая проверка токена
@@ -83,14 +83,20 @@ export const requireAuth = async (request: NextRequest): Promise<AuthUser | null
       id: true,
       email: true,
       name: true,
-      currentApostleId: true
+      status: true
     }
   });
   
-  if (!user) {
-    console.log('❌ Пользователь не найден в БД');
+  if (!user || user.status !== 'ACTIVE') {
+    console.log('❌ Пользователь не найден в БД или неактивен');
     return null;
   }
+  
+  // Обновляем lastActiveDate
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastActiveDate: new Date() }
+  });
   
   console.log('✅ Пользователь авторизован:', user.email);
   return user;

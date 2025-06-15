@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Text, Platform } from 'react-native';
+import { Text, Platform, View, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
@@ -11,6 +11,10 @@ import { ChatScreen } from '../screens/ChatScreen';
 import { ApostlesScreen } from '../screens/ApostlesScreen';
 import { MissionsScreen } from '../screens/MissionsScreen';
 import { AuthScreen } from '../screens/AuthScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { PathScreen } from '../screens/PathScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -26,6 +30,89 @@ const TabIcon: React.FC<{ emoji: string; focused: boolean; color: string }> = ({
     {emoji}
   </Text>
 );
+
+// Profile dropdown component
+const ProfileDropdown: React.FC<{ navigation: any }> = ({ navigation }) => {
+  const { theme } = useThemeStore();
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const handleProfilePress = () => {
+    setShowDropdown(false);
+    navigation.navigate('Profile');
+  };
+
+  const handleNotificationsPress = () => {
+    setShowDropdown(false);
+    navigation.navigate('Notifications');
+  };
+
+  const handleSettingsPress = () => {
+    setShowDropdown(false);
+    navigation.navigate('Settings');
+  };
+
+  return (
+    <View>
+      <TouchableOpacity onPress={() => setShowDropdown(true)}>
+        <View style={{ alignItems: 'center' }}>
+          <TabIcon emoji="👤" focused={false} color={theme.colors.textSecondary} />
+          <Text style={{ 
+            fontSize: 12, 
+            fontWeight: '500', 
+            marginTop: 4,
+            color: theme.colors.textSecondary 
+          }}>
+            Профиль
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showDropdown}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={dropdownStyles.overlay}
+          onPress={() => setShowDropdown(false)}
+        >
+          <View style={[dropdownStyles.dropdown, { backgroundColor: theme.colors.surface }]}>
+            <TouchableOpacity 
+              style={dropdownStyles.dropdownItem}
+              onPress={handleProfilePress}
+            >
+              <Text style={dropdownStyles.dropdownIcon}>👤</Text>
+              <Text style={[dropdownStyles.dropdownText, { color: theme.colors.text }]}>
+                Профиль
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={dropdownStyles.dropdownItem}
+              onPress={handleNotificationsPress}
+            >
+              <Text style={dropdownStyles.dropdownIcon}>🔔</Text>
+              <Text style={[dropdownStyles.dropdownText, { color: theme.colors.text }]}>
+                Уведомления
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={dropdownStyles.dropdownItem}
+              onPress={handleSettingsPress}
+            >
+              <Text style={dropdownStyles.dropdownIcon}>⚙️</Text>
+              <Text style={[dropdownStyles.dropdownText, { color: theme.colors.text }]}>
+                Настройки
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
 
 const MainTabs: React.FC = () => {
   const { theme } = useThemeStore();
@@ -61,12 +148,12 @@ const MainTabs: React.FC = () => {
         }}
       />
       <Tab.Screen
-        name="Apostles"
-        component={ApostlesScreen}
+        name="Path"
+        component={PathScreen}
         options={{
-          tabBarLabel: 'Наставники',
+          tabBarLabel: 'Путь',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="👥" focused={focused} color={color} />
+            <TabIcon emoji="🛤️" focused={focused} color={color} />
           ),
         }}
       />
@@ -74,7 +161,7 @@ const MainTabs: React.FC = () => {
         name="Chat"
         component={ChatScreen}
         options={{
-          tabBarLabel: 'Беседа',
+          tabBarLabel: 'Беседы',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="💬" focused={focused} color={color} />
           ),
@@ -90,9 +177,54 @@ const MainTabs: React.FC = () => {
           ),
         }}
       />
+      <Tab.Screen
+        name="ProfileTab"
+        options={{
+          tabBarLabel: '',
+          tabBarIcon: ({ navigation }: any) => (
+            <ProfileDropdown navigation={navigation} />
+          ),
+        }}
+      >
+        {() => <View />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 };
+
+const dropdownStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 90,
+  },
+  dropdown: {
+    borderRadius: 12,
+    padding: 8,
+    minWidth: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+  },
+  dropdownIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  dropdownText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+});
 
 export const AppNavigator: React.FC = () => {
   const { theme } = useThemeStore();
@@ -154,7 +286,13 @@ export const AppNavigator: React.FC = () => {
         }}
       >
         {userIsAuthenticated ? (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <>
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Apostles" component={ApostlesScreen} />
+          </>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />
         )}

@@ -14,71 +14,112 @@ import {
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ChatBubble } from '../components/ChatBubble';
-import { ChatMessage, chatAPI, chatAPIWithAuth, ChatRequest } from '../services/api';
-import { contextService, ContextMessage } from '../services/contextService';
+import { ChatMessage } from '../services/api';
+import apiService from '../services/apiNew';
 import { APOSTLES } from '../constants/apostles';
 
-export const ChatScreen: React.FC = () => {
+interface ChatScreenProps {
+  navigation?: any;
+  route?: {
+    params?: {
+      apostleId?: string;
+      chatId?: string;
+    };
+  };
+}
+
+export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const { theme } = useThemeStore();
-  const { user, totalDays, token } = useUserStore();
+  const { user } = useUserStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const currentApostle = user?.currentApostle || APOSTLES.find(a => a.id === 'peter');
+  // Определяем текущего апостола из параметров или пользователя
+  const apostleId = route?.params?.apostleId || user?.currentApostle?.id;
+  const currentApostle = apostleId 
+    ? APOSTLES.find(a => a.id === apostleId) || user?.currentApostle || APOSTLES[0]
+    : user?.currentApostle || APOSTLES[0];
 
   useEffect(() => {
     if (currentApostle && user?.id) {
-      loadChatHistory();
+      initializeChat();
     }
   }, [currentApostle, user?.id]);
 
-  const loadChatHistory = async () => {
+  const initializeChat = async () => {
     if (!currentApostle || !user?.id) return;
     
     try {
-      const context = await contextService.getContext(user.id, currentApostle.id);
+      setIsLoading(true);
       
-      // Преобразуем контекстные сообщения в формат ChatMessage
-      const chatMessages = context.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.timestamp,
-      }));
-      
-      // Если это первый раз, добавляем приветственное сообщение
-      if (chatMessages.length === 0) {
-        const welcomeMessage: ChatMessage = {
-          role: 'assistant',
-          content: currentApostle.welcomeMessage || getWelcomeMessage(),
-          timestamp: new Date(),
-        };
-        
-        // Добавляем в контекст
-        await contextService.addMessage(
-          user.id,
-          currentApostle.id,
-          {
-            role: 'assistant',
-            content: welcomeMessage.content,
-            timestamp: welcomeMessage.timestamp,
-          }
-        );
-        
-        setMessages([welcomeMessage]);
+      // Если есть chatId в параметрах, загружаем существующий чат
+      if (route?.params?.chatId) {
+        await loadExistingChat(route.params.chatId);
       } else {
-        setMessages(chatMessages);
+        // Иначе создаем новый чат или используем существующий
+        await loadOrCreateChat();
       }
     } catch (error) {
-      console.error('Error loading chat history:', error);
-      // Fallback к стандартному приветствию
-      setMessages([{
-        role: 'assistant',
-        content: getWelcomeMessage(),
-        timestamp: new Date(),
-      }]);
+      console.error('Ошибка инициализации чата:', error);
+      // Fallback к приветственному сообщению
+      addWelcomeMessage();
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const loadExistingChat = async (chatId: string) => {
+    try {
+      const chatData = await apiService.getChat(chatId);
+      setChatId(chatData.chat.id);
+      
+      // Преобразуем сообщения в формат ChatMessage
+      const chatMessages: ChatMessage[] = chatData.messages.map(msg => ({
+        role: msg.sender === 'USER' ? 'user' : 'assistant',
+        content: msg.content,
+        timestamp: new Date(msg.createdAt),
+      }));
+      
+      setMessages(chatMessages);
+    } catch (error) {
+      console.error('Ошибка загрузки чата:', error);
+      addWelcomeMessage();
+    }
+  };
+
+  const loadOrCreateChat = async () => {
+    try {
+      // Получаем список чатов пользователя
+      const chats = await apiService.getChats();
+      
+      // Ищем чат с текущим апостолом
+      const existingChat = chats.find(chat => chat.apostle.id === currentApostle?.id);
+      
+      if (existingChat) {
+        // Загружаем существующий чат
+        await loadExistingChat(existingChat.id);
+      } else {
+        // Создаем новый чат
+        const newChat = await apiService.createChat(currentApostle!.id);
+        setChatId(newChat.id);
+        addWelcomeMessage();
+      }
+    } catch (error) {
+      console.error('Ошибка создания/загрузки чата:', error);
+      addWelcomeMessage();
+    }
+  };
+
+  const addWelcomeMessage = () => {
+    const welcomeMessage: ChatMessage = {
+      role: 'assistant',
+      content: currentApostle?.welcomeMessage || getWelcomeMessage(),
+      timestamp: new Date(),
+    };
+    setMessages([welcomeMessage]);
   };
 
   const getWelcomeMessage = () => {
@@ -96,19 +137,13 @@ export const ChatScreen: React.FC = () => {
   const sendMessage = async () => {
     console.log('📤 sendMessage вызвана');
     console.log('👤 Пользователь:', user?.email || 'не найден');
-    console.log('🎫 Токен:', !!token ? 'есть' : 'отсутствует');
-    console.log('�� Сообщение:', inputMessage);
-    console.log('👥 Апостол:', user?.currentApostle?.name || 'не выбран');
+    console.log('💬 Сообщение:', inputMessage);
+    console.log('👥 Апостол:', currentApostle?.name || 'не выбран');
+    console.log('🆔 Chat ID:', chatId);
 
     if (!user?.id) {
       console.error('❌ Пользователь не авторизован');
       Alert.alert('Ошибка', 'Пользователь не авторизован');
-      return;
-    }
-
-    if (!token) {
-      console.error('❌ Токен авторизации отсутствует');
-      Alert.alert('Ошибка', 'Требуется повторная авторизация');
       return;
     }
 
@@ -117,7 +152,7 @@ export const ChatScreen: React.FC = () => {
       return;
     }
 
-    if (!user.currentApostle) {
+    if (!currentApostle) {
       console.error('❌ Апостол не выбран');
       Alert.alert('Ошибка', 'Апостол не выбран');
       return;
@@ -140,23 +175,27 @@ export const ChatScreen: React.FC = () => {
     try {
       console.log('🌐 Отправляем запрос к API...');
       
-      const request: ChatRequest = {
-        apostleId: user.currentApostle.id,
-        message: userMessage.content,
-        context: messages.slice(-5).map(m => `${m.role}: ${m.content}`),
-        additionalContext: `Пользователь: ${user.name}. Текущий день пути: ${totalDays + 1}.`
-      };
+      let activeChatId = chatId;
+      
+      // Если чат еще не создан, создаем его
+      if (!activeChatId) {
+        console.log('🆕 Создаем новый чат');
+        const newChat = await apiService.createChat(currentApostle.id);
+        activeChatId = newChat.id;
+        setChatId(activeChatId);
+      }
 
-      console.log('📦 Параметры запроса:', request);
-
-      const response = await chatAPIWithAuth.sendMessage(request, token);
+      // Отправляем сообщение
+      const response = await apiService.sendMessage(activeChatId, {
+        content: userMessage.content,
+      });
       
       console.log('✅ Получен ответ от API:', response);
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: response.message,
-        timestamp: new Date(response.timestamp),
+        content: response.content,
+        timestamp: new Date(response.createdAt),
       };
 
       console.log('🤖 Создано сообщение ассистента:', assistantMessage);
@@ -166,7 +205,33 @@ export const ChatScreen: React.FC = () => {
 
     } catch (error) {
       console.error('❌ Ошибка отправки сообщения:', error);
-      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      
+      // Fallback к старому API для совместимости
+      try {
+        console.log('🔄 Пробуем старый API...');
+        
+        const fallbackResponse = await apiService.sendChatMessage({
+          apostleId: currentApostle.id,
+          message: userMessage.content,
+          context: messages.slice(-5).map(m => `${m.role}: ${m.content}`),
+        });
+        
+        if (fallbackResponse.success) {
+          const assistantMessage: ChatMessage = {
+            role: 'assistant',
+            content: fallbackResponse.data.message,
+            timestamp: new Date(),
+          };
+          
+          setMessages(prev => [...prev, assistantMessage]);
+          console.log('✅ Сообщение отправлено через fallback API');
+        } else {
+          throw new Error('Fallback API failed');
+        }
+      } catch (fallbackError) {
+        console.error('❌ Ошибка fallback API:', fallbackError);
+        Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      }
     } finally {
       setIsLoading(false);
       console.log('🏁 sendMessage завершена');
@@ -201,6 +266,17 @@ export const ChatScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+          {navigation && (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>
+                ← Назад
+              </Text>
+            </TouchableOpacity>
+          )}
+          
           <View style={styles.apostleHeader}>
             <Text style={[styles.apostleIcon, { color: currentApostle.color }]}>
               {currentApostle.icon}
@@ -274,7 +350,6 @@ export const ChatScreen: React.FC = () => {
               console.log('🖱️ Кнопка отправки нажата!');
               console.log('🖱️ inputMessage:', inputMessage);
               console.log('🖱️ isLoading:', isLoading);
-              console.log('🖱️ disabled:', !inputMessage.trim() || isLoading);
               sendMessage();
             }}
             disabled={!inputMessage.trim() || isLoading}
@@ -299,6 +374,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingRight: 8,
+    marginBottom: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   apostleHeader: {
     flexDirection: 'row',

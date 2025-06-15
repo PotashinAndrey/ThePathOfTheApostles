@@ -15,6 +15,34 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   const { theme } = useThemeStore();
   const isUser = message.role === 'user';
 
+  // Безопасное форматирование времени
+  const formatTime = (timestamp: Date | string) => {
+    try {
+      const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+      
+      // Проверяем, что дата валидна
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid timestamp:', timestamp);
+        return new Date().toLocaleTimeString('ru-RU', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+      
+      return date.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      console.error('Error formatting timestamp:', error, timestamp);
+      // Fallback к текущему времени
+      return new Date().toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+  };
+
   return (
     <View style={[
       styles.container,
@@ -43,10 +71,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             color: isUser ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary,
           }
         ]}>
-          {new Date(message.timestamp).toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatTime(message.timestamp)}
         </Text>
       </View>
     </View>
