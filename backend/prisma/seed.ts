@@ -36,6 +36,97 @@ async function main() {
     }
   });
 
+  // Добавляем новые навыки для остальных апостолов
+  const compassionSkill = await prisma.skill.upsert({
+    where: { id: 'compassion' },
+    update: {},
+    create: {
+      id: 'compassion',
+      name: 'Сострадание',
+      description: 'Способность к эмпатии, пониманию и принятию других людей'
+    }
+  });
+
+  const puritySkill = await prisma.skill.upsert({
+    where: { id: 'purity' },
+    update: {},
+    create: {
+      id: 'purity',
+      name: 'Чистота намерений',
+      description: 'Простота и ясность в мыслях, поступках и желаниях'
+    }
+  });
+
+  const curiositySkill = await prisma.skill.upsert({
+    where: { id: 'curiosity' },
+    update: {},
+    create: {
+      id: 'curiosity',
+      name: 'Любознательность',
+      description: 'Стремление к познанию и постоянному обучению'
+    }
+  });
+
+  const courageSkill = await prisma.skill.upsert({
+    where: { id: 'courage' },
+    update: {},
+    create: {
+      id: 'courage',
+      name: 'Смелость',
+      description: 'Готовность действовать, несмотря на страхи и препятствия'
+    }
+  });
+
+  const determinationSkill = await prisma.skill.upsert({
+    where: { id: 'determination' },
+    update: {},
+    create: {
+      id: 'determination',
+      name: 'Целеустремлённость',
+      description: 'Решительность и непреклонность в достижении целей'
+    }
+  });
+
+  const honestySkill = await prisma.skill.upsert({
+    where: { id: 'honesty' },
+    update: {},
+    create: {
+      id: 'honesty',
+      name: 'Честность',
+      description: 'Критическое мышление и способность видеть правду'
+    }
+  });
+
+  const faithSkill = await prisma.skill.upsert({
+    where: { id: 'faith' },
+    update: {},
+    create: {
+      id: 'faith',
+      name: 'Вера',
+      description: 'Способность находить смысл и надежду в жизни'
+    }
+  });
+
+  const humanitySkill = await prisma.skill.upsert({
+    where: { id: 'humanity' },
+    update: {},
+    create: {
+      id: 'humanity',
+      name: 'Человечность',
+      description: 'Забота о других людях и умение дружить'
+    }
+  });
+
+  const reconciliationSkill = await prisma.skill.upsert({
+    where: { id: 'reconciliation' },
+    update: {},
+    create: {
+      id: 'reconciliation',
+      name: 'Примирение',
+      description: 'Способность к прощению и работе с виной'
+    }
+  });
+
   // Создаем фразы
   const phrases = await Promise.all([
     prisma.phrase.upsert({
@@ -63,30 +154,38 @@ async function main() {
   ]);
 
   // Создаем наборы фраз
-  const peterPhraseSet = await prisma.phraseSet.create({
-    data: {
+  const peterPhraseSet = await prisma.phraseSet.upsert({
+    where: { id: 'peter-phrases' },
+    update: {},
+    create: {
       id: 'peter-phrases',
       phraseIds: ['peter-quote-1']
     }
   });
 
-  const johnPhraseSet = await prisma.phraseSet.create({
-    data: {
+  const johnPhraseSet = await prisma.phraseSet.upsert({
+    where: { id: 'john-phrases' },
+    update: {},
+    create: {
       id: 'john-phrases',
       phraseIds: ['john-quote-1']
     }
   });
 
   // Создаем медиатор для связи апостолов и наборов фраз
-  const peterPhraseSets = await prisma.apostlePhraseSets.create({
-    data: {
+  const peterPhraseSets = await prisma.apostlePhraseSets.upsert({
+    where: { id: 'peter-phrase-sets' },
+    update: {},
+    create: {
       id: 'peter-phrase-sets',
       phraseSetIds: [peterPhraseSet.id]
     }
   });
 
-  const johnPhraseSets = await prisma.apostlePhraseSets.create({
-    data: {
+  const johnPhraseSets = await prisma.apostlePhraseSets.upsert({
+    where: { id: 'john-phrase-sets' },
+    update: {},
+    create: {
       id: 'john-phrase-sets',
       phraseSetIds: [johnPhraseSet.id]
     }
@@ -183,9 +282,192 @@ async function main() {
     }
   });
 
+  // Создаем остальных апостолов
+  const andrew = await prisma.apostle.upsert({
+    where: { id: 'andrew' },
+    update: {},
+    create: {
+      id: 'andrew',
+      name: 'Андрей',
+      title: 'Сострадательный',
+      archetype: 'Эмпат',
+      virtueId: compassionSkill.id,
+      description: 'Апостол сострадания и принятия. Научит понимать других людей и принимать их такими, какие они есть.',
+      personality: 'Тёплый и понимающий собеседник. Умеет слушать без осуждения. Помогает увидеть хорошее в людях.',
+      color: '#FF69B4',
+      icon: '❤️',
+      
+      systemPrompt: `Ты - Андрей Сострадательный, апостол сострадания и принятия. Твой архетип - Эмпат.
+
+Ты тёплый и понимающий наставник, который учит людей состраданию и принятию. Говоришь мягко, с пониманием, всегда ищешь хорошее в людях и ситуациях.`
+    }
+  });
+
+  const bartholomew = await prisma.apostle.upsert({
+    where: { id: 'bartholomew' },
+    update: {},
+    create: {
+      id: 'bartholomew',
+      name: 'Варфоломей',
+      title: 'Чистый',
+      archetype: 'Аскет',
+      virtueId: puritySkill.id,
+      description: 'Апостол простоты и чистоты намерений. Поможет освободиться от лишнего и найти истинные ценности.',
+      personality: 'Простой и искренний. Говорит о важном без лишних слов. Ценит естественность и подлинность.',
+      color: '#FFFFFF',
+      icon: '🤍',
+      
+      systemPrompt: `Ты - Варфоломей Чистый, апостол простоты и чистоты намерений. Твой архетип - Аскет.
+
+Ты простой и искренний наставник, который помогает людям освободиться от лишнего и найти истинные ценности. Говоришь просто, без украшательств, ценишь подлинность.`
+    }
+  });
+
+  const philip = await prisma.apostle.upsert({
+    where: { id: 'philip' },
+    update: {},
+    create: {
+      id: 'philip',
+      name: 'Филипп',
+      title: 'Исследующий',
+      archetype: 'Искатель',
+      virtueId: curiositySkill.id,
+      description: 'Апостол любознательности и обучения. Вдохновит на постоянное развитие и изучение нового.',
+      personality: 'Любопытный и вдохновляющий. Всегда готов учиться и учить других. Задаёт интересные вопросы.',
+      color: '#FFA500',
+      icon: '🔍',
+      
+      systemPrompt: `Ты - Филипп Исследующий, апостол любознательности и обучения. Твой архетип - Искатель.
+
+Ты любопытный и вдохновляющий наставник, который мотивирует людей к постоянному развитию. Задаёшь интересные вопросы, помогаешь увидеть новые возможности для роста.`
+    }
+  });
+
+  const jamesOld = await prisma.apostle.upsert({
+    where: { id: 'james-old' },
+    update: {},
+    create: {
+      id: 'james-old',
+      name: 'Иаков',
+      title: 'Старший',
+      archetype: 'Воин',
+      virtueId: courageSkill.id,
+      description: 'Апостол смелости и действий. Поможет преодолеть страхи и начать действовать для достижения целей.',
+      personality: 'Решительный и вдохновляющий. Призывает к действию. Не боится трудностей и вызовов.',
+      color: '#DC143C',
+      icon: '⚔️',
+      
+      systemPrompt: `Ты - Иаков Старший, апостол смелости и действий. Твой архетип - Воин.
+
+Ты решительный и вдохновляющий наставник, который помогает людям преодолеть страхи и начать действовать. Призываешь к смелости, не боишься вызовов.`
+    }
+  });
+
+  const simon = await prisma.apostle.upsert({
+    where: { id: 'simon' },
+    update: {},
+    create: {
+      id: 'simon',
+      name: 'Симон',
+      title: 'Ревностный',
+      archetype: 'Ревнитель',
+      virtueId: determinationSkill.id,
+      description: 'Апостол решительности и целеустремлённости. Научит не сдаваться и идти к цели до конца.',
+      personality: 'Страстный и целеустремлённый. Не принимает полумер. Вдохновляет на достижение великих целей.',
+      color: '#800080',
+      icon: '🔥',
+      
+      systemPrompt: `Ты - Симон Ревностный, апостол решительности и целеустремлённости. Твой архетип - Ревнитель.
+
+Ты страстный и целеустремлённый наставник, который не принимает полумер. Вдохновляешь людей на достижение великих целей, учишь не сдаваться.`
+    }
+  });
+
+  const thomas = await prisma.apostle.upsert({
+    where: { id: 'thomas' },
+    update: {},
+    create: {
+      id: 'thomas',
+      name: 'Фома',
+      title: 'Сомневающийся',
+      archetype: 'Скептик',
+      virtueId: honestySkill.id,
+      description: 'Апостол честности и критического мышления. Поможет разобраться в сложных вопросах и найти правду.',
+      personality: 'Вдумчивый и аналитический. Задаёт сложные вопросы. Помогает видеть вещи реалистично.',
+      color: '#708090',
+      icon: '🤔',
+      
+      systemPrompt: `Ты - Фома Сомневающийся, апостол честности и критического мышления. Твой архетип - Скептик.
+
+Ты вдумчивый и аналитический наставник, который помогает людям мыслить критически. Задаёшь сложные вопросы, помогаешь видеть правду и реальность.`
+    }
+  });
+
+  const judas = await prisma.apostle.upsert({
+    where: { id: 'judas' },
+    update: {},
+    create: {
+      id: 'judas',
+      name: 'Иуда',
+      title: 'Леввей (Фаддей)',
+      archetype: 'Вдохновитель',
+      virtueId: faithSkill.id,
+      description: 'Апостол веры и обретения смысла. Поможет найти надежду и смысл даже в трудные времена.',
+      personality: 'Вдохновляющий и обнадёживающий. Помогает увидеть свет в темноте. Верит в лучшее в людях.',
+      color: '#FFD700',
+      icon: '✨',
+      
+      systemPrompt: `Ты - Иуда Леввей (Фаддей), апостол веры и обретения смысла. Твой архетип - Вдохновитель.
+
+Ты вдохновляющий и обнадёживающий наставник, который помогает людям найти смысл и надежду. Веришь в лучшее в людях, помогаешь увидеть свет даже в темноте.`
+    }
+  });
+
+  const jamesYoung = await prisma.apostle.upsert({
+    where: { id: 'james-young' },
+    update: {},
+    create: {
+      id: 'james-young',
+      name: 'Иаков',
+      title: 'Младший',
+      archetype: 'Друг',
+      virtueId: humanitySkill.id,
+      description: 'Апостол человечности и заботы. Научит быть хорошим другом и заботиться о близких людях.',
+      personality: 'Дружелюбный и заботливый. Умеет поддержать в трудную минуту. Ценит простые человеческие радости.',
+      color: '#32CD32',
+      icon: '🤝',
+      
+      systemPrompt: `Ты - Иаков Младший, апостол человечности и заботы. Твой архетип - Друг.
+
+Ты дружелюбный и заботливый наставник, который учит людей быть хорошими друзьями. Умеешь поддержать, ценишь простые человеческие радости и искренние отношения.`
+    }
+  });
+
+  const judasIscariot = await prisma.apostle.upsert({
+    where: { id: 'judas-iscariot' },
+    update: {},
+    create: {
+      id: 'judas-iscariot',
+      name: 'Иуда Искариот',
+      title: '(искуплённый)',
+      archetype: 'Тень / Тест',
+      virtueId: reconciliationSkill.id,
+      description: 'Апостол примирения и прощения. Поможет работать с виной, стыдом и найти путь к искуплению.',
+      personality: 'Понимающий и мудрый в вопросах прощения. Знает цену ошибок. Помогает найти путь к искуплению.',
+      color: '#2F4F4F',
+      icon: '🕊️',
+      
+      systemPrompt: `Ты - Иуда Искариот (искуплённый), апостол примирения и прощения. Твой архетип - Тень / Тест.
+
+Ты понимающий наставник, который знает цену ошибок и силу прощения. Помогаешь людям работать с виной, стыдом и находить путь к искуплению и примирению.`
+    }
+  });
+
   // Создаем задания
-  const dailyDiscipline = await prisma.challenge.create({
-    data: {
+  const dailyDiscipline = await prisma.challenge.upsert({
+    where: { id: 'daily-discipline' },
+    update: {},
+    create: {
       id: 'daily-discipline',
       name: 'Ежедневная дисциплина',
       description: 'Выработайте привычку выполнять одно важное дело каждый день в одно и то же время',
@@ -194,8 +476,10 @@ async function main() {
     }
   });
 
-  const innerPeace = await prisma.challenge.create({
-    data: {
+  const innerPeace = await prisma.challenge.upsert({
+    where: { id: 'inner-peace' },
+    update: {},
+    create: {
       id: 'inner-peace',
       name: 'Внутренний покой',
       description: 'Научитесь находить покой в любой ситуации через медитацию и размышления',
@@ -204,8 +488,10 @@ async function main() {
     }
   });
 
-  const lifeStructure = await prisma.challenge.create({
-    data: {
+  const lifeStructure = await prisma.challenge.upsert({
+    where: { id: 'life-structure' },
+    update: {},
+    create: {
       id: 'life-structure',
       name: 'Структура жизни',
       description: 'Организуйте свою жизнь с помощью планирования и систематизации',
@@ -215,8 +501,10 @@ async function main() {
   });
 
   // Создаем пути
-  const disciplinePath = await prisma.path.create({
-    data: {
+  const disciplinePath = await prisma.path.upsert({
+    where: { id: 'discipline-path' },
+    update: {},
+    create: {
       id: 'discipline-path',
       name: 'Путь Дисциплины',
       description: 'Развитие силы воли и постоянства в достижении целей',
@@ -224,8 +512,10 @@ async function main() {
     }
   });
 
-  const contemplationPath = await prisma.path.create({
-    data: {
+  const contemplationPath = await prisma.path.upsert({
+    where: { id: 'contemplation-path' },
+    update: {},
+    create: {
       id: 'contemplation-path',
       name: 'Путь Созерцания',
       description: 'Обретение внутреннего покоя и глубокого самопонимания',
@@ -234,16 +524,30 @@ async function main() {
   });
 
   // Связываем пути с заданиями
-  await prisma.pathChallenge.create({
-    data: {
+  await prisma.pathChallenge.upsert({
+    where: {
+      pathId_challengeId: {
+        pathId: disciplinePath.id,
+        challengeId: dailyDiscipline.id
+      }
+    },
+    update: {},
+    create: {
       pathId: disciplinePath.id,
       challengeId: dailyDiscipline.id,
       order: 1
     }
   });
 
-  await prisma.pathChallenge.create({
-    data: {
+  await prisma.pathChallenge.upsert({
+    where: {
+      pathId_challengeId: {
+        pathId: contemplationPath.id,
+        challengeId: innerPeace.id
+      }
+    },
+    update: {},
+    create: {
       pathId: contemplationPath.id,
       challengeId: innerPeace.id,
       order: 1
@@ -251,16 +555,20 @@ async function main() {
   });
 
   // Создаем подписки
-  await prisma.subscription.create({
-    data: {
+  await prisma.subscription.upsert({
+    where: { id: 'basic' },
+    update: {},
+    create: {
       id: 'basic',
       name: 'Базовый',
       price: 0
     }
   });
 
-  await prisma.subscription.create({
-    data: {
+  await prisma.subscription.upsert({
+    where: { id: 'premium' },
+    update: {},
+    create: {
       id: 'premium',
       name: 'Премиум',
       price: 999
@@ -268,8 +576,10 @@ async function main() {
   });
 
   // Создаем достижения
-  await prisma.achievement.create({
-    data: {
+  await prisma.achievement.upsert({
+    where: { id: 'first-step' },
+    update: {},
+    create: {
       id: 'first-step',
       name: 'Первый шаг',
       description: 'Завершите первое задание',
@@ -277,8 +587,10 @@ async function main() {
     }
   });
 
-  await prisma.achievement.create({
-    data: {
+  await prisma.achievement.upsert({
+    where: { id: 'week-streak' },
+    update: {},
+    create: {
       id: 'week-streak',
       name: 'Недельный стрик',
       description: 'Поддерживайте активность 7 дней подряд',
@@ -287,31 +599,39 @@ async function main() {
   });
 
   // Создаем пресеты для чата
-  await prisma.chatPreset.create({
-    data: {
+  await prisma.chatPreset.upsert({
+    where: { id: 'supportive' },
+    update: {},
+    create: {
       id: 'supportive',
       textPrompt: 'Будь поддерживающим и мотивирующим в общении с пользователем'
     }
   });
 
-  await prisma.chatPreset.create({
-    data: {
+  await prisma.chatPreset.upsert({
+    where: { id: 'challenging' },
+    update: {},
+    create: {
       id: 'challenging',
       textPrompt: 'Будь более требовательным и вызывающим, чтобы мотивировать пользователя к действию'
     }
   });
 
   // Создаем фичи для фичатоглинга
-  await prisma.feature.create({
-    data: {
+  await prisma.feature.upsert({
+    where: { id: 'voice-messages' },
+    update: {},
+    create: {
       id: 'voice-messages',
       feature: 'voice_messages',
       enabled: true
     }
   });
 
-  await prisma.feature.create({
-    data: {
+  await prisma.feature.upsert({
+    where: { id: 'ai-analysis' },
+    update: {},
+    create: {
       id: 'ai-analysis',
       feature: 'ai_analysis',
       enabled: false
@@ -319,8 +639,8 @@ async function main() {
   });
 
   console.log('✅ База данных инициализирована успешно!');
-  console.log(`📦 Апостолы: ${peter.name}, ${john.name}, ${matthew.name}`);
-  console.log(`📚 Навыки: ${disciplineSkill.name}, ${contemplationSkill.name}, ${wisdomSkill.name}`);
+  console.log(`📦 Апостолы (12): ${peter.name}, ${john.name}, ${matthew.name}, ${andrew.name}, ${bartholomew.name}, ${philip.name}, ${jamesOld.name}, ${simon.name}, ${thomas.name}, ${judas.name}, ${jamesYoung.name}, ${judasIscariot.name}`);
+  console.log(`📚 Навыки (12): ${disciplineSkill.name}, ${contemplationSkill.name}, ${wisdomSkill.name}, ${compassionSkill.name}, ${puritySkill.name}, ${curiositySkill.name}, ${courageSkill.name}, ${determinationSkill.name}, ${honestySkill.name}, ${faithSkill.name}, ${humanitySkill.name}, ${reconciliationSkill.name}`);
   console.log(`🛤️  Пути: ${disciplinePath.name}, ${contemplationPath.name}`);
   console.log(`🎯 Задания: ${dailyDiscipline.name}, ${innerPeace.name}, ${lifeStructure.name}`);
 }

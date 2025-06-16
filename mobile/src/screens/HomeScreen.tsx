@@ -78,7 +78,10 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const handleChatPress = () => {
     if (stats?.currentPath) {
       // Навигация к чату с апостолом текущего пути
-      navigation.navigate('Chat', { apostleId: stats.currentPath.challenges[0]?.apostle?.id });
+      navigation.navigate('Chat', { 
+        screen: 'ChatDetail', 
+        params: { apostleId: stats.currentPath.challenges[0]?.apostle?.id } 
+      });
     } else {
       navigation.navigate('Chat');
     }

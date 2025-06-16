@@ -9,6 +9,7 @@ import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ChatScreen } from '../screens/ChatScreen';
+import { ChatsListScreen } from '../screens/ChatsListScreen';
 import { ApostlesScreen } from '../screens/ApostlesScreen';
 import { MissionsScreen } from '../screens/MissionsScreen';
 import { AuthScreen } from '../screens/AuthScreen';
@@ -22,6 +23,7 @@ import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 const ProfileStack = createStackNavigator();
+const ChatStack = createStackNavigator();
 
 const TabIcon: React.FC<{ emoji: string; focused: boolean; color: string }> = ({ 
   emoji, 
@@ -50,6 +52,20 @@ const ProfileStackNavigator: React.FC = () => {
       <ProfileStack.Screen name="Subscriptions" component={SubscriptionsScreen} />
       <ProfileStack.Screen name="Apostles" component={ApostlesScreen} />
     </ProfileStack.Navigator>
+  );
+};
+
+// Chat Stack Navigator
+const ChatStackNavigator: React.FC = () => {
+  return (
+    <ChatStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <ChatStack.Screen name="ChatsList" component={ChatsListScreen} />
+      <ChatStack.Screen name="ChatDetail" component={ChatScreen} />
+    </ChatStack.Navigator>
   );
 };
 
@@ -182,7 +198,7 @@ const MainTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Chat"
-        component={ChatScreen}
+        component={ChatStackNavigator}
         options={{
           tabBarLabel: 'Беседы',
           tabBarIcon: ({ focused, color }) => (
