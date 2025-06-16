@@ -23,7 +23,9 @@ export async function GET(
     // Получаем параметры пагинации
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    
+    console.log('📄 Параметры пагинации:', { page, limit });
 
     // Получаем чат только если он принадлежит пользователю
     const chat = await prisma.chat.findFirst({
@@ -38,15 +40,7 @@ export async function GET(
           }
         },
         path: true,
-        currentChallenge: true,
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: (page - 1) * limit,
-          include: {
-            relatedChallenge: true
-          }
-        }
+        currentChallenge: true
       }
     });
 
@@ -57,37 +51,42 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Преобразуем сообщения
-    const messages: ChatMessageInfo[] = chat.messages.map(message => ({
+    // Получаем общее количество сообщений для правильной пагинации
+    const totalMessages = await prisma.chatMessage.count({
+      where: { chatId: params.id }
+    });
+
+    // Вычисляем offset для пагинации (последние сообщения сначала)
+    const offset = Math.max(0, totalMessages - (page * limit));
+    const take = Math.min(limit, totalMessages - offset);
+
+    console.log('📊 Статистика сообщений:', {
+      totalMessages,
+      page,
+      limit,
+      offset,
+      take
+    });
+
+    // Получаем сообщения с правильной пагинацией
+    const messages = await prisma.chatMessage.findMany({
+      where: { chatId: params.id },
+      orderBy: { createdAt: 'asc' }, // Сортируем по возрастанию для правильной пагинации
+      skip: offset,
+      take: take,
+      include: {
+        relatedChallenge: true
+      }
+    });
+
+    // Преобразуем сообщения в формат API
+    const chatMessages: ChatMessageInfo[] = messages.map(message => ({
       id: message.id,
       sender: message.sender,
       content: message.content,
       voiceUrl: message.voiceUrl,
       createdAt: message.createdAt,
-      metadata: message.metadata,
-      relatedChallenge: message.relatedChallenge ? {
-        id: message.relatedChallenge.id,
-        name: message.relatedChallenge.name,
-        description: message.relatedChallenge.description,
-        icon: message.relatedChallenge.icon,
-        apostle: {
-          id: chat.apostle.id,
-          name: chat.apostle.name,
-          title: chat.apostle.title,
-          description: chat.apostle.description,
-          archetype: chat.apostle.archetype,
-          personality: chat.apostle.personality,
-          icon: chat.apostle.icon,
-          color: chat.apostle.color,
-          virtue: chat.apostle.virtue ? {
-            id: chat.apostle.virtue.id,
-            name: chat.apostle.virtue.name,
-            description: chat.apostle.virtue.description
-          } : undefined
-        },
-        isCompleted: false,
-        isActive: true
-      } : undefined
+      metadata: message.metadata
     }));
 
     const chatInfo: ChatInfo = {
@@ -108,7 +107,7 @@ export async function GET(
           description: chat.apostle.virtue.description
         } : undefined
       },
-      lastMessage: messages[0],
+      lastMessage: chatMessages[0],
       unreadCount: 0,
       path: chat.path ? {
         id: chat.path.id,
@@ -159,11 +158,11 @@ export async function GET(
       success: true,
       data: {
         chat: chatInfo,
-        messages: messages,
+        messages: chatMessages,
         pagination: {
           page,
           limit,
-          hasMore: messages.length === limit
+          hasMore: offset > 0
         }
       }
     });

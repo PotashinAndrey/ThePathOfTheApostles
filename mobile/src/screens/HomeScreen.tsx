@@ -564,6 +564,7 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 10,
   },
   actionButton: {
     flex: 1,

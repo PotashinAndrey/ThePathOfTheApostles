@@ -89,15 +89,35 @@ class ApiService {
     
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
-
+      
+      // Сначала проверяем статус ответа
       if (!response.ok) {
-        console.error(`❌ API Error ${response.status}:`, data);
-        throw new Error(data.error || `HTTP ${response.status}`);
+        console.error(`❌ API Error ${response.status}: ${response.statusText}`);
+        
+        // Пытаемся получить текст ответа для более подробной информации
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } else {
+            const errorText = await response.text();
+            console.error('❌ API Error Response (HTML):', errorText.substring(0, 200));
+            errorMessage = `${response.status} ${response.statusText}`;
+          }
+        } catch (parseError) {
+          console.error('❌ Error parsing error response:', parseError);
+        }
+        
+        throw new Error(errorMessage);
       }
 
+      // Только если ответ успешный, парсим JSON
+      const data = await response.json();
       console.log(`✅ API Success: ${endpoint}`);
       return data;
+      
     } catch (error) {
       console.error(`❌ API Request failed: ${endpoint}`, error);
       throw error;
@@ -244,7 +264,7 @@ class ApiService {
     }
   }
 
-  async getChat(chatId: string, page: number = 1, limit: number = 50): Promise<{
+  async getChat(chatId: string, page: number = 1, limit: number = 10): Promise<{
     chat: ChatInfo;
     messages: ChatMessageInfo[];
     pagination: { page: number; limit: number; hasMore: boolean };

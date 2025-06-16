@@ -34,7 +34,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Определяем текущего апостола из параметров или пользователя
@@ -45,35 +48,40 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
   useEffect(() => {
     if (currentApostle && user?.id) {
+      console.log('💬 Инициализация чата с', currentApostle.name);
       initializeChat();
     }
-  }, [currentApostle, user?.id]);
+  }, [currentApostle?.id, user?.id]);
 
   const initializeChat = async () => {
     if (!currentApostle || !user?.id) return;
     
     try {
       setIsLoading(true);
+      setCurrentPage(1);
+      setHasMoreMessages(true);
       
       // Если есть chatId в параметрах, загружаем существующий чат
       if (route?.params?.chatId) {
+        console.log('📥 Загружаем чат:', route.params.chatId);
         await loadExistingChat(route.params.chatId);
       } else {
         // Иначе создаем новый чат или используем существующий
         await loadOrCreateChat();
       }
     } catch (error) {
-      console.error('Ошибка инициализации чата:', error);
-      // Fallback к приветственному сообщению
+      console.error('❌ Ошибка инициализации чата:', error);
       addWelcomeMessage();
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadExistingChat = async (chatId: string) => {
+  const loadExistingChat = async (chatId: string, page: number = 1, limit: number = 10) => {
     try {
-      const chatData = await apiService.getChat(chatId);
+      const chatData = await apiService.getChat(chatId, page, limit);
+      console.log(`💬 Загружено ${chatData.messages.length} сообщений (страница ${page})`);
+      
       setChatId(chatData.chat.id);
       
       // Преобразуем сообщения в формат ChatMessage
@@ -83,10 +91,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
         timestamp: new Date(msg.createdAt),
       }));
       
-      setMessages(chatMessages);
+      // При первой загрузке - заменяем сообщения, при пагинации - добавляем в начало
+      if (page === 1) {
+        setMessages(chatMessages);
+      } else {
+        setMessages(prev => [...chatMessages, ...prev]);
+      }
+      
+      // Обновляем состояние пагинации
+      setCurrentPage(page);
+      setHasMoreMessages(chatData.pagination.hasMore);
     } catch (error) {
-      console.error('Ошибка загрузки чата:', error);
-      addWelcomeMessage();
+      console.error('❌ Ошибка загрузки чата:', error);
+      if (page === 1) {
+        addWelcomeMessage();
+      }
     }
   };
 
@@ -99,17 +118,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       const existingChat = chats.find(chat => chat.apostle.id === currentApostle?.id);
       
       if (existingChat) {
-        // Загружаем существующий чат
+        console.log('📥 Найден существующий чат с', currentApostle?.name);
         await loadExistingChat(existingChat.id);
       } else {
-        // Создаем новый чат
+        console.log('🆕 Создаем новый чат с', currentApostle?.name);
         const newChat = await apiService.createChat(currentApostle!.id);
         setChatId(newChat.id);
         addWelcomeMessage();
       }
     } catch (error) {
-      console.error('Ошибка создания/загрузки чата:', error);
+      console.error('❌ Ошибка создания/загрузки чата:', error);
       addWelcomeMessage();
+    }
+  };
+
+  const loadMoreMessages = async () => {
+    if (!chatId || !hasMoreMessages || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      await loadExistingChat(chatId, nextPage, 10);
+    } catch (error) {
+      console.error('Ошибка загрузки дополнительных сообщений:', error);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -120,6 +153,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
+    setHasMoreMessages(false); // Для welcome сообщения нет предыдущих сообщений
   };
 
   const getWelcomeMessage = () => {
@@ -202,6 +236,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
       setMessages(prev => [...prev, assistantMessage]);
       console.log('✅ Сообщение добавлено в чат');
+      
+      // Сбрасываем пагинацию, так как появились новые сообщения
+      setCurrentPage(1);
 
     } catch (error) {
       console.error('❌ Ошибка отправки сообщения:', error);
@@ -225,6 +262,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           
           setMessages(prev => [...prev, assistantMessage]);
           console.log('✅ Сообщение отправлено через fallback API');
+          
+          // Сбрасываем пагинацию, так как появились новые сообщения
+          setCurrentPage(1);
         } else {
           throw new Error('Fallback API failed');
         }
@@ -242,9 +282,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     scrollViewRef.current?.scrollToEnd({ animated: true });
   };
 
+  const handleScroll = (event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    
+    // Проверяем, достиг ли пользователь верха (с небольшим порогом)
+    const isNearTop = contentOffset.y <= 50;
+    
+    if (isNearTop && hasMoreMessages && !isLoadingMore) {
+      loadMoreMessages();
+    }
+  };
+
   useEffect(() => {
-    scrollToEnd();
-  }, [messages]);
+    // Только для новых сообщений скроллим вниз, не для загруженных сверху
+    if (!isLoadingMore) {
+      scrollToEnd();
+    }
+  }, [messages, isLoadingMore]);
 
   if (!currentApostle) {
     return (
@@ -290,6 +344,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
               </Text>
             </View>
           </View>
+
         </View>
 
         {/* Messages */}
@@ -298,10 +353,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           style={styles.messagesContainer}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToEnd}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         >
+          {/* Loading indicator for more messages */}
+          {isLoadingMore && (
+            <View style={styles.loadingMoreContainer}>
+              <View style={[styles.loadingMoreBubble, { backgroundColor: theme.colors.surface }]}>
+                <Text style={[styles.loadingMoreText, { color: theme.colors.textSecondary }]}>
+                  Загружаем предыдущие сообщения...
+                </Text>
+              </View>
+            </View>
+          )}
+          
+          {/* No more messages indicator */}
+          {!hasMoreMessages && messages.length > 0 && currentPage > 1 && (
+            <View style={styles.loadingMoreContainer}>
+              <View style={[styles.loadingMoreBubble, { backgroundColor: theme.colors.surface }]}>
+                <Text style={[styles.loadingMoreText, { color: theme.colors.textSecondary }]}>
+                  Это начало вашей беседы
+                </Text>
+              </View>
+            </View>
+          )}
+          
           {messages.map((message, index) => (
             <ChatBubble
-              key={index}
+              key={`${message.timestamp}-${index}`}
               message={message}
               apostleColor={currentApostle.color}
             />
@@ -417,6 +496,25 @@ const styles = StyleSheet.create({
   noApostleText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  loadingMoreContainer: {
+    paddingHorizontal: 16,
+    marginVertical: 8,
+    alignItems: 'center',
+  },
+  loadingMoreBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   typingIndicator: {
     paddingHorizontal: 16,

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { Text, Platform, View, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 
 import { useThemeStore } from '../stores/themeStore';
@@ -15,9 +16,12 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PathScreen } from '../screens/PathScreen';
+import { AchievementsScreen } from '../screens/AchievementsScreen';
+import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const ProfileStack = createStackNavigator();
 
 const TabIcon: React.FC<{ emoji: string; focused: boolean; color: string }> = ({ 
   emoji, 
@@ -31,24 +35,43 @@ const TabIcon: React.FC<{ emoji: string; focused: boolean; color: string }> = ({
   </Text>
 );
 
+// Profile Stack Navigator
+const ProfileStackNavigator: React.FC = () => {
+  return (
+    <ProfileStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
+      <ProfileStack.Screen name="Settings" component={SettingsScreen} />
+      <ProfileStack.Screen name="Notifications" component={NotificationsScreen} />
+      <ProfileStack.Screen name="Achievements" component={AchievementsScreen} />
+      <ProfileStack.Screen name="Subscriptions" component={SubscriptionsScreen} />
+      <ProfileStack.Screen name="Apostles" component={ApostlesScreen} />
+    </ProfileStack.Navigator>
+  );
+};
+
 // Profile dropdown component
-const ProfileDropdown: React.FC<{ navigation: any }> = ({ navigation }) => {
+const ProfileDropdown: React.FC = () => {
   const { theme } = useThemeStore();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleProfilePress = () => {
     setShowDropdown(false);
-    navigation.navigate('Profile');
+    navigation.navigate('ProfileTab', { screen: 'ProfileMain' });
   };
 
   const handleNotificationsPress = () => {
     setShowDropdown(false);
-    navigation.navigate('Notifications');
+    navigation.navigate('ProfileTab', { screen: 'Notifications' });
   };
 
   const handleSettingsPress = () => {
     setShowDropdown(false);
-    navigation.navigate('Settings');
+    navigation.navigate('ProfileTab', { screen: 'Settings' });
   };
 
   return (
@@ -179,15 +202,14 @@ const MainTabs: React.FC = () => {
       />
       <Tab.Screen
         name="ProfileTab"
+        component={ProfileStackNavigator}
         options={{
           tabBarLabel: '',
-          tabBarIcon: ({ navigation }: any) => (
-            <ProfileDropdown navigation={navigation} />
+          tabBarIcon: () => (
+            <ProfileDropdown />
           ),
         }}
-      >
-        {() => <View />}
-      </Tab.Screen>
+      />
     </Tab.Navigator>
   );
 };
@@ -280,23 +302,17 @@ export const AppNavigator: React.FC = () => {
         console.log('🧭 Navigation state изменен:', state?.routes?.[0]?.name);
       }}
     >
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        {userIsAuthenticated ? (
-          <>
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="Settings" component={SettingsScreen} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} />
-            <Stack.Screen name="Apostles" component={ApostlesScreen} />
-          </>
-        ) : (
+      {userIsAuthenticated ? (
+        <MainTabs />
+      ) : (
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
           <Stack.Screen name="Auth" component={AuthScreen} />
-        )}
-      </Stack.Navigator>
+        </Stack.Navigator>
+      )}
     </NavigationContainer>
   );
 }; 

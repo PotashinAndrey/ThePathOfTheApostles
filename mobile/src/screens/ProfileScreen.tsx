@@ -9,12 +9,15 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import apiService from '../services/apiNew';
 import { UserProfileResponse } from '../types/api';
 
-export const ProfileScreen: React.FC<any> = ({ navigation }) => {
+export const ProfileScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
@@ -84,13 +87,21 @@ export const ProfileScreen: React.FC<any> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header with back button */}
+      <View style={[styles.headerContainer, { backgroundColor: theme.colors.surface }]}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={[styles.backIcon, { color: theme.colors.text }]}>←</Text>
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+          Профиль
+        </Text>
+        <View style={styles.headerPlaceholder} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-            Профиль
-          </Text>
-        </View>
 
         {/* Avatar Section */}
         <View style={[styles.avatarSection, { backgroundColor: theme.colors.surface }]}>
@@ -267,13 +278,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  header: {
-    padding: 20,
-    paddingTop: 10,
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  backButton: {
+    padding: 8,
+  },
+  backIcon: {
+    fontSize: 24,
+    fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerPlaceholder: {
+    width: 40,
   },
   avatarSection: {
     margin: 20,
