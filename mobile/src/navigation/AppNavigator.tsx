@@ -27,6 +27,7 @@ const Stack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const ChatStack = createStackNavigator();
 const PathStack = createStackNavigator();
+const MissionsStack = createStackNavigator();
 
 const TabIcon: React.FC<{ emoji: string; focused: boolean; color: string }> = ({ 
   emoji, 
@@ -83,7 +84,22 @@ const PathStackNavigator: React.FC = () => {
     >
       <PathStack.Screen name="PathMain" component={PathScreen} />
       <PathStack.Screen name="PathTask" component={PathTaskScreen} />
+      <PathStack.Screen name="DailyTask" component={DailyTaskScreen} />
     </PathStack.Navigator>
+  );
+};
+
+// Missions Stack Navigator
+const MissionsStackNavigator: React.FC = () => {
+  return (
+    <MissionsStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <MissionsStack.Screen name="MissionsMain" component={MissionsScreen} />
+      <MissionsStack.Screen name="DailyTask" component={DailyTaskScreen} />
+    </MissionsStack.Navigator>
   );
 };
 
@@ -226,7 +242,7 @@ const MainTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Missions"
-        component={MissionsScreen}
+        component={MissionsStackNavigator}
         options={{
           tabBarLabel: 'Задания',
           tabBarIcon: ({ focused, color }) => (

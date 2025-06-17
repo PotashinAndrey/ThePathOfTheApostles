@@ -7,12 +7,16 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ApostleBlockCard } from '../components/ApostleBlockCard';
+import { DailyTaskWidget } from '../components/DailyTaskWidget';
 import { MAIN_LEARNING_PATH } from '../constants/learningPath';
 import { ApostleBlock, PathTask, LearningPath } from '../constants/learningPath';
+import { DailyTaskInfo } from '../types/api';
+import apiService from '../services/apiNew';
 
 interface PathScreenProps {
   navigation?: any;
@@ -29,6 +33,7 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
   const [learningPath, setLearningPath] = useState<LearningPath>(MAIN_LEARNING_PATH);
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
+  const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
 
   useEffect(() => {
     // Разворачиваем первый блок (Петра) по умолчанию
@@ -43,14 +48,42 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
   const loadUserProgress = async () => {
     try {
       setLoading(true);
-      // TODO: Загрузить прогресс пользователя из API
-      // const progress = await apiService.getUserLearningProgress();
-      // updatePathWithProgress(progress);
+      
+      // Загружаем активное задание
+      const activeTaskData = await apiService.getActiveTask();
+      if (activeTaskData.hasActiveTask && activeTaskData.currentTask) {
+        setActiveTask(activeTaskData.currentTask);
+        updateTaskStatus(activeTaskData.currentTask);
+      }
+      
     } catch (error) {
       console.error('Ошибка загрузки прогресса:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateTaskStatus = (task: DailyTaskInfo) => {
+    setLearningPath(prevPath => ({
+      ...prevPath,
+      blocks: prevPath.blocks.map(block => {
+        if (block.apostleId === task.apostleId) {
+          return {
+            ...block,
+            tasks: block.tasks.map(blockTask => {
+              if (blockTask.dayNumber === task.dayNumber) {
+                return {
+                  ...blockTask,
+                  status: task.status as any,
+                };
+              }
+              return blockTask;
+            }),
+          };
+        }
+        return block;
+      }),
+    }));
   };
 
   const handleToggleExpand = (blockId: string) => {
@@ -65,6 +98,81 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
       task,
       block,
     });
+  };
+
+  const handleActiveTaskPress = () => {
+    if (!activeTask) return;
+    
+    navigation?.navigate?.('DailyTask', {
+      taskId: activeTask.id,
+      task: activeTask,
+    });
+  };
+
+  const handleActiveTaskComplete = async () => {
+    if (!activeTask) return;
+
+    Alert.alert(
+      'Завершить задание',
+      'Вы действительно выполнили это задание?',
+      [
+        { text: 'Нет', style: 'cancel' },
+        {
+          text: 'Да, завершить',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await apiService.completeDailyTask(activeTask.id);
+              
+              Alert.alert(
+                'Поздравляем! 🎉',
+                'Задание успешно выполнено. Завтра вас ждет новое испытание!',
+                [{ text: 'OK' }]
+              );
+              
+              // Перезагружаем прогресс
+              loadUserProgress();
+            } catch (error) {
+              console.error('Ошибка завершения задания:', error);
+              Alert.alert('Ошибка', 'Не удалось завершить задание');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleActiveTaskSkip = async () => {
+    if (!activeTask) return;
+
+    Alert.alert(
+      'Оставить задание',
+      'Задание останется активным и вы сможете вернуться к нему завтра.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Оставить',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await apiService.skipDailyTask(activeTask.id);
+              
+              Alert.alert(
+                'Задание отложено',
+                'Вы можете вернуться к нему в любое время.',
+                [{ text: 'OK' }]
+              );
+              
+              // Перезагружаем прогресс
+              loadUserProgress();
+            } catch (error) {
+              console.error('Ошибка пропуска задания:', error);
+              Alert.alert('Ошибка', 'Не удалось отложить задание');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getOverallProgress = () => {
@@ -125,14 +233,31 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
         </View>
       </View>
 
-      {/* Learning Path Description */}
-      <View style={styles.pathDescription}>
-        <Text style={[styles.descriptionText, { color: theme.colors.textSecondary }]}>
-          {learningPath.description}
-        </Text>
-      </View>
+             {/* Learning Path Description */}
+       <View style={styles.pathDescription}>
+         <Text style={[styles.descriptionText, { color: theme.colors.textSecondary }]}>
+           {learningPath.description}
+         </Text>
+       </View>
 
-      {/* Blocks List */}
+       {/* Active Task Widget */}
+       {activeTask && (
+         <View style={[styles.activeTaskSection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary }]}>
+           <Text style={[styles.activeTaskTitle, { color: theme.colors.text }]}>
+             🎯 Задание дня
+           </Text>
+           <DailyTaskWidget
+             task={activeTask}
+             onPress={handleActiveTaskPress}
+             onComplete={handleActiveTaskComplete}
+             onSkip={handleActiveTaskSkip}
+             showActions={false}
+             compact={true}
+           />
+         </View>
+       )}
+
+       {/* Blocks List */}
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -275,6 +400,29 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+
+  activeTaskSection: {
+    marginHorizontal: 12,
+    marginVertical: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  activeTaskTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
   },
 
   scrollView: {

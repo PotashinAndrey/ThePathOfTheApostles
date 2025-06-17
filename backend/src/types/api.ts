@@ -146,7 +146,7 @@ export interface CompleteChallengeRequest {
   result?: string;
 }
 
-// Daily Task types - ежедневные задания для основного пути
+// Path Task types - задания пути (не более одного в день)
 export interface DailyTaskInfo {
   id: string;
   name: string;

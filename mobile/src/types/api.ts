@@ -59,7 +59,7 @@ export interface ChallengeInfo {
   order?: number;
 }
 
-// Daily Task types - ежедневные задания для основного пути
+// Path Task types - задания пути (не более одного в день)
 export interface DailyTaskInfo {
   id: string;
   name: string;

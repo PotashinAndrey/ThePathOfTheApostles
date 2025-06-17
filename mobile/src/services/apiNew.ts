@@ -439,7 +439,7 @@ class ApiService {
     }
   }
 
-  // Daily Tasks API
+  // Path Tasks API
   async getActiveTask(): Promise<ActiveTaskResponse> {
     const response = await this.request<ApiResponse<ActiveTaskResponse>>('/daily-tasks/active');
     

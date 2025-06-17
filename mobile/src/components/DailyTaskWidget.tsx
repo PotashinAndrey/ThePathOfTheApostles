@@ -14,6 +14,7 @@ interface DailyTaskWidgetProps {
   onComplete?: () => void;
   onSkip?: () => void;
   showActions?: boolean;
+  compact?: boolean;
 }
 
 export const DailyTaskWidget: React.FC<DailyTaskWidgetProps> = ({
@@ -22,6 +23,7 @@ export const DailyTaskWidget: React.FC<DailyTaskWidgetProps> = ({
   onComplete,
   onSkip,
   showActions = false,
+  compact = false,
 }) => {
   const { theme } = useThemeStore();
 
@@ -44,6 +46,48 @@ export const DailyTaskWidget: React.FC<DailyTaskWidgetProps> = ({
       default: return status;
     }
   };
+
+  if (compact) {
+    return (
+      <TouchableOpacity
+        style={[
+          styles.compactContainer,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: getStatusColor(task.status),
+          }
+        ]}
+        onPress={onPress}
+        activeOpacity={0.8}
+      >
+        <View style={styles.compactContent}>
+          <Text style={styles.compactIcon}>📋</Text>
+          <View style={styles.compactInfo}>
+            <Text style={[
+              styles.compactTaskName,
+              {
+                color: theme.colors.text,
+                textDecorationLine: task.status === 'completed' ? 'line-through' : 'none',
+              }
+            ]}>
+              {task.name}
+            </Text>
+            <View style={[
+              styles.compactStatusBadge,
+              { backgroundColor: getStatusColor(task.status) + '20' }
+            ]}>
+              <Text style={[
+                styles.compactStatusText,
+                { color: getStatusColor(task.status) }
+              ]}>
+                День {task.dayNumber} • {getStatusText(task.status)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -150,6 +194,56 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
+  },
+
+  compactContainer: {
+    borderRadius: 8,
+    padding: 8,
+    marginHorizontal: 16,
+    marginBottom: 6,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+
+  compactContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  compactIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+
+  compactInfo: {
+    flex: 1,
+  },
+
+  compactTaskName: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 2,
+    lineHeight: 16,
+  },
+
+  compactStatusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+
+  compactStatusText: {
+    fontSize: 9,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   
   header: {

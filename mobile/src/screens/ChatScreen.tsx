@@ -454,14 +454,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
         </View>
 
-        {/* Daily Task Widget */}
+        {/* Path Task Widget */}
         {activeTask && (
           <DailyTaskWidget
             task={activeTask}
             onPress={handleTaskPress}
             onComplete={handleTaskComplete}
             onSkip={handleTaskSkip}
-            showActions={activeTask.status === 'active'}
+            showActions={false}
           />
         )}
 

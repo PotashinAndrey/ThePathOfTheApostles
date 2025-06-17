@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,58 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { MissionCard } from '../components/MissionCard';
+import { DailyTaskWidget } from '../components/DailyTaskWidget';
+import { DailyTaskInfo } from '../types/api';
+import apiService from '../services/apiNew';
 
-export const MissionsScreen: React.FC = () => {
+interface MissionsScreenProps {
+  navigation?: any;
+}
+
+export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) => {
   const { theme } = useThemeStore();
   const { missions, currentMission } = useUserStore();
+  const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
+  const [isLoadingTask, setIsLoadingTask] = useState(false);
 
   const activeMissions = missions.filter(mission => !mission.isCompleted);
   const completedMissions = missions.filter(mission => mission.isCompleted);
+
+  useEffect(() => {
+    loadActiveTask();
+  }, []);
+
+  const loadActiveTask = async () => {
+    try {
+      setIsLoadingTask(true);
+      const activeTaskData = await apiService.getActiveTask();
+      
+      if (activeTaskData.hasActiveTask && activeTaskData.currentTask) {
+        setActiveTask(activeTaskData.currentTask);
+      } else {
+        setActiveTask(null);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки задания пути:', error);
+      setActiveTask(null);
+    } finally {
+      setIsLoadingTask(false);
+    }
+  };
+
+  const handleActiveTaskPress = () => {
+    if (!activeTask) return;
+    
+    navigation?.navigate?.('DailyTask', {
+      taskId: activeTask.id,
+      task: activeTask,
+    });
+  };
 
   const handleMissionPress = (mission: any) => {
     // Navigate to mission details or update progress
@@ -40,6 +81,35 @@ export const MissionsScreen: React.FC = () => {
             Путь к духовному росту через практические задания
           </Text>
         </View>
+
+        {/* Active Path Task */}
+        {isLoadingTask ? (
+          <View style={styles.loadingSection}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              Загружаем задание...
+            </Text>
+          </View>
+        ) : activeTask ? (
+          <View style={styles.dailyTaskSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                🎯 Задание пути
+              </Text>
+              <View style={[styles.priorityBadge, { backgroundColor: theme.colors.spiritual }]}>
+                <Text style={styles.priorityText}>Сегодня</Text>
+              </View>
+            </View>
+            <DailyTaskWidget
+              task={activeTask}
+              onPress={handleActiveTaskPress}
+              showActions={false}
+            />
+            <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
+              Выполняйте не более одного задания пути в день для лучшего усвоения
+            </Text>
+          </View>
+        ) : null}
 
         {/* Current Mission */}
         {currentMission && (
@@ -315,5 +385,27 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  loadingSection: {
+    margin: 20,
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 12,
+  },
+  dailyTaskSection: {
+    marginBottom: 24,
+  },
+  taskDescription: {
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginHorizontal: 20,
+    marginTop: 8,
   },
 }); 
