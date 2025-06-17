@@ -26,7 +26,7 @@
   "author": "Andry Potashin",
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^6.9.0",
     "@supabase/supabase-js": "^2.38.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
@@ -39,12 +39,12 @@
     "jsonwebtoken": "^9.0.2",
     "next": "^14.0.4",
     "openai": "^4.20.1",
-    "prisma": "^5.22.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "typescript": "^5.3.3"
   },
   "devDependencies": {
+    "prisma": "^6.9.0",
     "tsx": "^4.7.0"
   }
 }
