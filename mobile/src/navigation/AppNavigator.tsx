@@ -19,11 +19,14 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PathScreen } from '../screens/PathScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
+import { DailyTaskScreen } from '../screens/DailyTaskScreen';
+import { PathTaskScreen } from '../screens/PathTaskScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const ChatStack = createStackNavigator();
+const PathStack = createStackNavigator();
 
 const TabIcon: React.FC<{ emoji: string; focused: boolean; color: string }> = ({ 
   emoji, 
@@ -65,7 +68,22 @@ const ChatStackNavigator: React.FC = () => {
     >
       <ChatStack.Screen name="ChatsList" component={ChatsListScreen} />
       <ChatStack.Screen name="ChatDetail" component={ChatScreen} />
+      <ChatStack.Screen name="DailyTask" component={DailyTaskScreen} />
     </ChatStack.Navigator>
+  );
+};
+
+// Path Stack Navigator
+const PathStackNavigator: React.FC = () => {
+  return (
+    <PathStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <PathStack.Screen name="PathMain" component={PathScreen} />
+      <PathStack.Screen name="PathTask" component={PathTaskScreen} />
+    </PathStack.Navigator>
   );
 };
 
@@ -188,7 +206,7 @@ const MainTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Path"
-        component={PathScreen}
+        component={PathStackNavigator}
         options={{
           tabBarLabel: 'Путь',
           tabBarIcon: ({ focused, color }) => (

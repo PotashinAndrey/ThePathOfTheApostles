@@ -20,7 +20,11 @@ import {
   NotificationInfo,
   SubscriptionInfo,
   UpdateProfileRequest,
-  ChangePasswordRequest
+  ChangePasswordRequest,
+  DailyTaskInfo,
+  ActiveTaskResponse,
+  CompleteDailyTaskRequest,
+  SkipDailyTaskRequest
 } from '../types/api';
 
 const API_BASE_URL = CONFIG.API_BASE_URL;
@@ -432,6 +436,65 @@ class ApiService {
 
     if (!response.success) {
       throw new Error(response.error || 'Ошибка обновления подписки');
+    }
+  }
+
+  // Daily Tasks API
+  async getActiveTask(): Promise<ActiveTaskResponse> {
+    const response = await this.request<ApiResponse<ActiveTaskResponse>>('/daily-tasks/active');
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Ошибка получения активного задания');
+    }
+  }
+
+  async getDailyTask(id: string): Promise<DailyTaskInfo> {
+    const response = await this.request<ApiResponse<DailyTaskInfo>>(`/daily-tasks/${id}`);
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Ошибка получения задания');
+    }
+  }
+
+  async completeDailyTask(id: string, request: CompleteDailyTaskRequest = {}): Promise<void> {
+    const response = await this.request<ApiResponse>(
+      `/daily-tasks/${id}/complete`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.error || 'Ошибка завершения задания');
+    }
+  }
+
+  async skipDailyTask(id: string, request: SkipDailyTaskRequest = {}): Promise<void> {
+    const response = await this.request<ApiResponse>(
+      `/daily-tasks/${id}/skip`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.error || 'Ошибка пропуска задания');
+    }
+  }
+
+  async getApostleTasks(apostleId: string): Promise<DailyTaskInfo[]> {
+    const response = await this.request<ApiResponse<DailyTaskInfo[]>>(`/apostles/${apostleId}/daily-tasks`);
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Ошибка получения заданий апостола');
     }
   }
 
