@@ -40,6 +40,7 @@ model User {
   challengeResults    ChallengeResult[]
   userNotes           UserNote[]
   apostleRelations    UserApostleRelation[]
+  userDailyTasks      UserDailyTask[]
 
   @@map("users")
 }
@@ -112,6 +113,7 @@ model Apostle {
   chatMessages     ChatMessage[]
   apostleRelations UserApostleRelation[]
   phraseSets       ApostlePhraseSets?  @relation(fields: [phraseSetsId], references: [id])
+  dailyTasks       DailyTask[]
 
   @@map("apostles")
 }
@@ -365,4 +367,51 @@ model UserAchievementsList {
   userProgress   UserProgress[]
 
   @@map("user_achievements_list")
+}
+
+// 22. DailyTask - ежедневные задания для основного пути
+model DailyTask {
+  id                 String          @id @default(cuid())
+  name               String          // Название задания
+  description        String          @db.Text // Описание задания
+  apostleId          String          // ID апостола
+  dayNumber          Int             // Номер дня в неделе (1-7)
+  motivationalPhrase String          @db.Text // Мотивационная фраза
+  createdAt          DateTime        @default(now())
+  
+  // Relations
+  apostle            Apostle         @relation(fields: [apostleId], references: [id])
+  userTasks          UserDailyTask[]
+  
+  @@unique([apostleId, dayNumber])
+  @@map("daily_tasks")
+}
+
+// 23. UserDailyTask - прогресс пользователя по ежедневному заданию
+model UserDailyTask {
+  id           String                     @id @default(cuid())
+  userId       String
+  dailyTaskId  String
+  status       UserDailyTaskStatus        @default(PENDING)
+  activatedAt  DateTime?                  // Дата активации
+  completedAt  DateTime?                  // Дата завершения
+  skippedAt    DateTime?                  // Дата пропуска
+  content      String?                    @db.Text // Заметки пользователя
+  notes        String?                    @db.Text // Дополнительные заметки
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  
+  // Relations
+  user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyTask    DailyTask                  @relation(fields: [dailyTaskId], references: [id])
+  
+  @@unique([userId, dailyTaskId])
+  @@map("user_daily_tasks")
+}
+
+enum UserDailyTaskStatus {
+  PENDING   // Ожидает активации
+  ACTIVE    // Активно
+  COMPLETED // Выполнено
+  SKIPPED   // Пропущено
 }

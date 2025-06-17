@@ -59,6 +59,33 @@ export interface ChallengeInfo {
   order?: number;
 }
 
+// Path Task types - задания пути (не более одного в день)
+export interface DailyTaskInfo {
+  id: string;
+  name: string;
+  description: string;
+  apostleId: string;
+  apostle: ApostleResponse;
+  dayNumber: number; // 1-7 для недели апостола
+  status: 'pending' | 'active' | 'completed' | 'skipped';
+  createdAt: Date;
+  activatedAt?: Date;
+  completedAt?: Date;
+  motivationalPhrase: string;
+}
+
+export interface ActiveTaskResponse {
+  hasActiveTask: boolean;
+  currentTask?: DailyTaskInfo;
+  nextTask?: DailyTaskInfo;
+  apostleProgress: {
+    apostleId: string;
+    currentDay: number;
+    completedTasks: number;
+    totalTasks: number;
+  };
+}
+
 export interface ChatInfo {
   id: string;
   name: string;
@@ -145,6 +172,15 @@ export interface SendMessageRequest {
 export interface CompleteChallengeRequest {
   content: string;
   result?: string;
+}
+
+export interface CompleteDailyTaskRequest {
+  content?: string;
+  notes?: string;
+}
+
+export interface SkipDailyTaskRequest {
+  reason?: string;
 }
 
 // API Response wrapper

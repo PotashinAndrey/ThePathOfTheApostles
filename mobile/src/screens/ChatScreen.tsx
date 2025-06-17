@@ -14,7 +14,9 @@ import {
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ChatBubble } from '../components/ChatBubble';
+import { DailyTaskWidget } from '../components/DailyTaskWidget';
 import { ChatMessage } from '../services/api';
+import { DailyTaskInfo, ActiveTaskResponse } from '../types/api';
 import apiService from '../services/apiNew';
 import { APOSTLES } from '../constants/apostles';
 
@@ -38,6 +40,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [chatId, setChatId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
+  const [isLoadingTask, setIsLoadingTask] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Определяем текущего апостола из параметров или пользователя
@@ -50,8 +54,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     if (currentApostle && user?.id) {
       console.log('💬 Инициализация чата с', currentApostle.name);
       initializeChat();
+      loadActiveTask();
     }
   }, [currentApostle?.id, user?.id]);
+
+  const loadActiveTask = async () => {
+    if (!currentApostle || !user?.id) return;
+    
+    try {
+      setIsLoadingTask(true);
+      const activeTaskData = await apiService.getActiveTask();
+      
+      // Показываем задание только если оно принадлежит текущему апостолу
+      if (activeTaskData.hasActiveTask && 
+          activeTaskData.currentTask?.apostleId === currentApostle.id) {
+        setActiveTask(activeTaskData.currentTask);
+      } else {
+        setActiveTask(null);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки активного задания:', error);
+      setActiveTask(null);
+    } finally {
+      setIsLoadingTask(false);
+    }
+  };
 
   const initializeChat = async () => {
     if (!currentApostle || !user?.id) return;
@@ -278,6 +305,86 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     }
   };
 
+  const handleTaskPress = () => {
+    if (!activeTask) return;
+    
+    navigation?.navigate?.('DailyTask', {
+      taskId: activeTask.id,
+      task: activeTask
+    });
+  };
+
+  const handleTaskComplete = async () => {
+    if (!activeTask) return;
+
+    Alert.alert(
+      'Завершить задание',
+      'Вы действительно выполнили это задание?',
+      [
+        { text: 'Нет', style: 'cancel' },
+        {
+          text: 'Да, завершить',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await apiService.completeDailyTask(activeTask.id);
+              
+              // Обновляем локальное состояние
+              setActiveTask(prev => prev ? { ...prev, status: 'completed', completedAt: new Date() } : null);
+              
+              Alert.alert(
+                'Поздравляем! 🎉',
+                'Задание успешно выполнено. Завтра вас ждет новое испытание!',
+                [{ text: 'OK' }]
+              );
+              
+              // Перезагружаем задание через некоторое время
+              setTimeout(() => {
+                loadActiveTask();
+              }, 1000);
+            } catch (error) {
+              console.error('Ошибка завершения задания:', error);
+              Alert.alert('Ошибка', 'Не удалось завершить задание');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleTaskSkip = async () => {
+    if (!activeTask) return;
+
+    Alert.alert(
+      'Оставить задание',
+      'Задание останется активным и вы сможете вернуться к нему завтра.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Оставить',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await apiService.skipDailyTask(activeTask.id);
+              
+              Alert.alert(
+                'Задание отложено',
+                'Вы можете вернуться к нему в любое время.',
+                [{ text: 'OK' }]
+              );
+              
+              // Обновляем задание
+              loadActiveTask();
+            } catch (error) {
+              console.error('Ошибка пропуска задания:', error);
+              Alert.alert('Ошибка', 'Не удалось отложить задание');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const scrollToEnd = () => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   };
@@ -346,6 +453,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           </View>
 
         </View>
+
+        {/* Path Task Widget */}
+        {activeTask && (
+          <DailyTaskWidget
+            task={activeTask}
+            onPress={handleTaskPress}
+            onComplete={handleTaskComplete}
+            onSkip={handleTaskSkip}
+            showActions={false}
+          />
+        )}
 
         {/* Messages */}
         <ScrollView
