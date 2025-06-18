@@ -11,8 +11,8 @@ import {
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { MissionCard } from '../components/MissionCard';
-import { DailyTaskWidget } from '../components/DailyTaskWidget';
-import { DailyTaskInfo, PathInfo, UserStatsResponse } from '../types/api';
+import { TaskWrapperCard } from '../components/TaskWrapperCard';
+import { TaskWrapperInfo, PathInfo, UserStatsResponse } from '../types/api';
 import apiService from '../services/apiNew';
 
 interface MissionsScreenProps {
@@ -22,8 +22,8 @@ interface MissionsScreenProps {
 export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) => {
   const { theme } = useThemeStore();
   const { missions, currentMission } = useUserStore();
-  const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
-  const [isLoadingTask, setIsLoadingTask] = useState(false);
+  const [activeTaskWrappers, setActiveTaskWrappers] = useState<TaskWrapperInfo[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [activePaths, setActivePaths] = useState<PathInfo[]>([]);
   const [completedPaths, setCompletedPaths] = useState<PathInfo[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -37,26 +37,21 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
 
   const loadData = async () => {
     await Promise.all([
-      loadActiveTask(),
+      loadActiveTaskWrappers(),
       loadUserStats()
     ]);
   };
 
-  const loadActiveTask = async () => {
+  const loadActiveTaskWrappers = async () => {
     try {
-      setIsLoadingTask(true);
-      const activeTaskData = await apiService.getActiveTask();
-      
-      if (activeTaskData.hasActiveTask && activeTaskData.currentTask) {
-        setActiveTask(activeTaskData.currentTask);
-      } else {
-        setActiveTask(null);
-      }
+      setIsLoadingTasks(true);
+      const taskWrappers = await apiService.getActiveTaskWrappers();
+      setActiveTaskWrappers(taskWrappers);
     } catch (error) {
-      console.error('❌ Ошибка загрузки задания пути:', error);
-      setActiveTask(null);
+      console.error('❌ Ошибка загрузки активных заданий:', error);
+      setActiveTaskWrappers([]);
     } finally {
-      setIsLoadingTask(false);
+      setIsLoadingTasks(false);
     }
   };
 
@@ -76,12 +71,9 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
     }
   };
 
-  const handleActiveTaskPress = () => {
-    if (!activeTask) return;
-    
-    navigation?.navigate?.('DailyTask', {
-      taskId: activeTask.id,
-      task: activeTask,
+  const handleTaskWrapperPress = (taskWrapper: TaskWrapperInfo) => {
+    navigation?.navigate?.('PathTask', {
+      taskWrapper: taskWrapper,
     });
   };
 
@@ -107,7 +99,8 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
   };
 
   const mainPath = getMainPath();
-  const hasActiveTask = activeTask !== null;
+  const hasActiveTask = activeTaskWrappers.length > 0;
+  const primaryActiveTask = activeTaskWrappers.length > 0 ? activeTaskWrappers[0] : null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -197,31 +190,39 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
           </View>
         )}
 
-        {/* Active Path Task */}
-        {isLoadingTask ? (
+        {/* Active Path Tasks */}
+        {isLoadingTasks ? (
           <View style={styles.loadingSection}>
             <ActivityIndicator size="small" color={theme.colors.primary} />
             <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-              Загружаем задание...
+              Загружаем задания...
             </Text>
           </View>
-        ) : activeTask ? (
+        ) : activeTaskWrappers.length > 0 ? (
           <View style={styles.dailyTaskSection}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                🎯 Задание пути
+                🎯 Активные задания
               </Text>
               <View style={[styles.priorityBadge, { backgroundColor: theme.colors.spiritual }]}>
-                <Text style={styles.priorityText}>Сегодня</Text>
+                <Text style={styles.priorityText}>
+                  {activeTaskWrappers.length}
+                </Text>
               </View>
             </View>
-            <DailyTaskWidget
-              task={activeTask}
-              onPress={handleActiveTaskPress}
-              showActions={false}
-            />
+            
+            {activeTaskWrappers.map((taskWrapper, index) => (
+              <TaskWrapperCard
+                key={taskWrapper.id}
+                taskWrapper={taskWrapper}
+                onPress={() => handleTaskWrapperPress(taskWrapper)}
+                onStatusChange={loadActiveTaskWrappers}
+                showActions={true}
+              />
+            ))}
+            
             <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
-              Выполняйте не более одного задания пути в день для лучшего усвоения
+              Выполняйте задания в удобном для вас темпе для лучшего духовного развития
             </Text>
           </View>
         ) : null}
@@ -354,7 +355,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
         )}
 
         {/* No Missions State */}
-        {missions.length === 0 && !hasActiveTask && !isLoadingTask && (
+        {missions.length === 0 && !hasActiveTask && !isLoadingTasks && (
           <View style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}>
             <Text style={styles.emptyIcon}>🎯</Text>
             <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>

@@ -13,6 +13,7 @@ import { ChatScreen } from '../screens/ChatScreen';
 import { ChatsListScreen } from '../screens/ChatsListScreen';
 import { ApostlesScreen } from '../screens/ApostlesScreen';
 import { MissionsScreen } from '../screens/MissionsScreen';
+import { ActiveTasksScreen } from '../screens/ActiveTasksScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -98,8 +99,9 @@ const MissionsStackNavigator: React.FC = () => {
         headerShown: false,
       }}
     >
-      <MissionsStack.Screen name="MissionsMain" component={MissionsScreen} />
+      <MissionsStack.Screen name="MissionsMain" component={ActiveTasksScreen} />
       <MissionsStack.Screen name="DailyTask" component={DailyTaskScreen} />
+      <MissionsStack.Screen name="PathTask" component={PathTaskScreen} />
     </MissionsStack.Navigator>
   );
 };
