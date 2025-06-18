@@ -122,34 +122,50 @@ export async function GET(request: NextRequest) {
             completedTasks: challengeCompletedTasks,
             isCompleted: challengeCompletedTasks === taskWrappers.length,
             isActive: isActive && challengeCompletedTasks < taskWrappers.length,
-            tasks: taskWrappers.map(tw => ({
-              id: tw.id,
-              challengeId: tw.challengeId,
-              task: {
-                id: tw.task.id,
-                name: tw.task.name,
-                description: tw.task.description
-              },
-              icon: tw.icon,
-              order: tw.order,
-              apostle: tw.apostle ? {
-                id: tw.apostle.id,
-                name: tw.apostle.name,
-                title: tw.apostle.title,
-                description: tw.apostle.description,
-                archetype: tw.apostle.archetype,
-                personality: tw.apostle.personality,
-                icon: tw.apostle.icon,
-                color: tw.apostle.color,
-                virtue: tw.apostle.virtue ? {
-                  id: tw.apostle.virtue.id,
-                  name: tw.apostle.virtue.name,
-                  description: tw.apostle.virtue.description
-                } : undefined
-              } : undefined,
-              isCompleted: completedTasks.includes(tw.id),
-              isActive: isActive && !completedTasks.includes(tw.id)
-            }))
+            tasks: taskWrappers.map(tw => {
+              // Вычисляем доступность задания
+              const currentIndex = taskWrappers.findIndex(t => t.id === tw.id);
+              let isAvailable = false;
+              
+              if (currentIndex === 0) {
+                // Первое задание всегда доступно
+                isAvailable = true;
+              } else if (currentIndex > 0) {
+                // Проверяем завершено ли предыдущее задание
+                const prevTaskWrapper = taskWrappers[currentIndex - 1];
+                isAvailable = completedTasks.includes(prevTaskWrapper.id);
+              }
+
+              return {
+                id: tw.id,
+                challengeId: tw.challengeId,
+                task: {
+                  id: tw.task.id,
+                  name: tw.task.name,
+                  description: tw.task.description
+                },
+                icon: tw.icon,
+                order: tw.order,
+                apostle: tw.apostle ? {
+                  id: tw.apostle.id,
+                  name: tw.apostle.name,
+                  title: tw.apostle.title,
+                  description: tw.apostle.description,
+                  archetype: tw.apostle.archetype,
+                  personality: tw.apostle.personality,
+                  icon: tw.apostle.icon,
+                  color: tw.apostle.color,
+                  virtue: tw.apostle.virtue ? {
+                    id: tw.apostle.virtue.id,
+                    name: tw.apostle.virtue.name,
+                    description: tw.apostle.virtue.description
+                  } : undefined
+                } : undefined,
+                isCompleted: completedTasks.includes(tw.id),
+                isActive: isActive && !completedTasks.includes(tw.id) && user.meta.activeTasks.includes(tw.id),
+                isAvailable: isAvailable
+              };
+            })
           });
         }
       }

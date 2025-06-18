@@ -131,6 +131,20 @@ export async function GET(request: NextRequest) {
       // Ищем challenge для этого TaskWrapper
       const challenge = challenges.find(c => c.orderedTasks.includes(tw.id));
       const apostle = tw.apostle || challenge?.apostle;
+
+      // Вычисляем доступность задания
+      let isAvailable = false;
+      if (challenge) {
+        const currentIndex = challenge.orderedTasks.indexOf(tw.id);
+        if (currentIndex === 0) {
+          // Первое задание всегда доступно
+          isAvailable = true;
+        } else if (currentIndex > 0) {
+          // Проверяем завершено ли предыдущее задание
+          const prevTaskWrapperId = challenge.orderedTasks[currentIndex - 1];
+          isAvailable = completedTaskWrapperIds.includes(prevTaskWrapperId);
+        }
+      }
       
       return {
         id: tw.id,
@@ -158,7 +172,8 @@ export async function GET(request: NextRequest) {
           } : undefined
         } : undefined,
         isCompleted: completedTaskWrapperIds.includes(tw.id),
-        isActive: activeTaskWrapperIds.includes(tw.id)
+        isActive: activeTaskWrapperIds.includes(tw.id),
+        isAvailable: isAvailable
       };
     });
 

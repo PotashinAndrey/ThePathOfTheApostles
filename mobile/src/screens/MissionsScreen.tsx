@@ -72,7 +72,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
   };
 
   const handleTaskWrapperPress = (taskWrapper: TaskWrapperInfo) => {
-    navigation?.navigate?.('PathTask', {
+    navigation?.navigate?.('TaskWrapper', {
       taskWrapper: taskWrapper,
     });
   };
@@ -199,7 +199,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
             </Text>
           </View>
         ) : activeTaskWrappers.length > 0 ? (
-          <View style={styles.dailyTaskSection}>
+          <View style={styles.activeTaskSection}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                 🎯 Активные задания
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 12,
   },
-  dailyTaskSection: {
+  activeTaskSection: {
     marginBottom: 24,
   },
   taskDescription: {

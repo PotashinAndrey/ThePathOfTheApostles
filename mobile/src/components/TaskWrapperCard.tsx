@@ -30,19 +30,22 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
   const getStatusColor = () => {
     if (taskWrapper.isCompleted) return theme.colors.success;
     if (taskWrapper.isActive) return theme.colors.primary;
-    return theme.colors.textSecondary;
+    if (taskWrapper.isAvailable) return theme.colors.textSecondary;
+    return '#999999'; // Заблокированные задания
   };
 
   const getStatusText = () => {
     if (taskWrapper.isCompleted) return 'Выполнено';
     if (taskWrapper.isActive) return 'Активно';
-    return 'Доступно';
+    if (taskWrapper.isAvailable) return 'Доступно';
+    return 'Заблокировано';
   };
 
   const getStatusIcon = () => {
     if (taskWrapper.isCompleted) return '✅';
     if (taskWrapper.isActive) return '⚡';
-    return '📋';
+    if (taskWrapper.isAvailable) return '📋';
+    return '🔒';
   };
 
   const handleActivate = async () => {
@@ -203,7 +206,20 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
       {/* Action Buttons */}
       {showActions && !isLoading && (
         <View style={styles.actions}>
-          {!taskWrapper.isActive && !taskWrapper.isCompleted && (
+          {/* Заблокированное задание */}
+          {!taskWrapper.isAvailable && !taskWrapper.isCompleted && (
+            <View style={[
+              styles.blockedBadge,
+              { backgroundColor: '#f5f5f5', borderColor: '#ddd', borderWidth: 1 }
+            ]}>
+              <Text style={[styles.blockedText, { color: '#999' }]}>
+                🔒 Завершите предыдущее задание
+              </Text>
+            </View>
+          )}
+
+          {/* Доступное для активации задание */}
+          {taskWrapper.isAvailable && !taskWrapper.isActive && !taskWrapper.isCompleted && (
             <TouchableOpacity
               style={[
                 styles.actionButton,
@@ -218,6 +234,7 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
             </TouchableOpacity>
           )}
 
+          {/* Активное задание */}
           {taskWrapper.isActive && !taskWrapper.isCompleted && (
             <View style={styles.activeActions}>
               <TouchableOpacity
@@ -255,6 +272,7 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
             </View>
           )}
 
+          {/* Завершенное задание */}
           {taskWrapper.isCompleted && (
             <View style={[
               styles.completedBadge,
@@ -399,6 +417,17 @@ const styles = StyleSheet.create({
   completedText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  blockedBadge: {
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  
+  blockedText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   
   loadingOverlay: {

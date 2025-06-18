@@ -21,8 +21,9 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { PathScreen } from '../screens/PathScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { SubscriptionsScreen } from '../screens/SubscriptionsScreen';
-import { DailyTaskScreen } from '../screens/DailyTaskScreen';
+
 import { PathTaskScreen } from '../screens/PathTaskScreen';
+import { TaskWrapperScreen } from '../screens/TaskWrapperScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -71,7 +72,7 @@ const ChatStackNavigator: React.FC = () => {
     >
       <ChatStack.Screen name="ChatsList" component={ChatsListScreen} />
       <ChatStack.Screen name="ChatDetail" component={ChatScreen} />
-      <ChatStack.Screen name="DailyTask" component={DailyTaskScreen} />
+      <ChatStack.Screen name="TaskWrapper" component={TaskWrapperScreen} />
     </ChatStack.Navigator>
   );
 };
@@ -86,7 +87,7 @@ const PathStackNavigator: React.FC = () => {
     >
       <PathStack.Screen name="PathMain" component={PathScreen} />
       <PathStack.Screen name="PathTask" component={PathTaskScreen} />
-      <PathStack.Screen name="DailyTask" component={DailyTaskScreen} />
+      <PathStack.Screen name="TaskWrapper" component={TaskWrapperScreen} />
     </PathStack.Navigator>
   );
 };
@@ -100,7 +101,7 @@ const MissionsStackNavigator: React.FC = () => {
       }}
     >
       <MissionsStack.Screen name="MissionsMain" component={ActiveTasksScreen} />
-      <MissionsStack.Screen name="DailyTask" component={DailyTaskScreen} />
+      <MissionsStack.Screen name="TaskWrapper" component={TaskWrapperScreen} />
       <MissionsStack.Screen name="PathTask" component={PathTaskScreen} />
     </MissionsStack.Navigator>
   );

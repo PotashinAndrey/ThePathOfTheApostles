@@ -72,7 +72,7 @@ export const ActiveTasksScreen: React.FC<ActiveTasksScreenProps> = ({ navigation
   };
 
   const handleTaskWrapperPress = (taskWrapper: TaskWrapperInfo) => {
-    navigation?.navigate?.('PathTask', {
+    navigation?.navigate?.('TaskWrapper', {
       taskWrapper: taskWrapper,
     });
   };

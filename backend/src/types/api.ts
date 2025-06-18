@@ -69,6 +69,7 @@ export interface TaskWrapperInfo {
   apostle?: ApostleResponse; // Может переопределять апостола испытания
   isCompleted: boolean;
   isActive: boolean;
+  isAvailable: boolean; // Доступно для активации (предыдущее завершено)
 }
 
 export interface TaskInfo {
