@@ -216,7 +216,6 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({ navigation }) =>
                 key={taskWrapper.id}
                 taskWrapper={taskWrapper}
                 onPress={() => handleTaskWrapperPress(taskWrapper)}
-                onStatusChange={loadActiveTaskWrappers}
                 showActions={true}
               />
             ))}

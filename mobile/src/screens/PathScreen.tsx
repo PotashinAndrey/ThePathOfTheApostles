@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { TaskWrapperCard } from '../components/TaskWrapperCard';
 import { TaskWrapperInfo, PathInfo, ChallengeInfo } from '../types/api';
 import apiService from '../services/apiNew';
@@ -27,6 +28,7 @@ interface PathScreenProps {
 export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
+  const { lastUpdated, getTaskWrapper } = useTaskWrapperStore(); // Выносим getTaskWrapper на верхний уровень
   const [pathsData, setPathsData] = useState<PathInfo[]>([]);
   const [expandedChallenges, setExpandedChallenges] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
@@ -36,6 +38,14 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
   useEffect(() => {
     loadPathsData();
   }, []);
+
+  // Слушаем изменения в taskWrapperStore и перезагружаем данные пути
+  useEffect(() => {
+    if (lastUpdated && pathsData.length > 0) {
+      console.log('🔄 PathScreen: TaskWrapper store обновлен, перезагружаем данные пути');
+      loadPathsData();
+    }
+  }, [lastUpdated]);
 
   const loadPathsData = async () => {
     try {
@@ -145,14 +155,25 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
     if (!activePath) return 0;
     
     return activePath.challenges.reduce((count, challenge) => {
-      return count + challenge.tasks.filter(task => task.isActive).length;
+      return count + challenge.tasks.filter(task => {
+        const storeTask = getTaskWrapper(task.id);
+        const actualTask = storeTask || task;
+        return actualTask.isActive;
+      }).length;
     }, 0);
   };
 
   const renderChallenge = (challenge: ChallengeInfo) => {
     const isExpanded = expandedChallenges[challenge.id] || false;
-    const activeTasks = challenge.tasks.filter(task => task.isActive);
-    const completedTasks = challenge.tasks.filter(task => task.isCompleted);
+    
+    // Получаем актуальные данные TaskWrapper'ов из store
+    const updatedTasks = challenge.tasks.map(task => {
+      const storeTask = getTaskWrapper(task.id);
+      return storeTask || task; // Используем данные из store если доступны, иначе из challenge
+    });
+    
+    const activeTasks = updatedTasks.filter(task => task.isActive);
+    const completedTasks = updatedTasks.filter(task => task.isCompleted);
 
     return (
       <View key={challenge.id} style={[styles.challengeCard, { backgroundColor: theme.colors.surface }]}>
@@ -212,14 +233,13 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
             <Text style={[styles.tasksTitle, { color: theme.colors.text }]}>
               Задания испытания:
             </Text>
-            {challenge.tasks
+            {updatedTasks
               .sort((a, b) => a.order - b.order)
               .map((taskWrapper) => (
                                  <TaskWrapperCard
                    key={taskWrapper.id}
                    taskWrapper={taskWrapper}
                    onPress={() => handleTaskWrapperPress(taskWrapper)}
-                   onStatusChange={refreshTaskWrappers}
                    showActions={true}
                  />
               ))}

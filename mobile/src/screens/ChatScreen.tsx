@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { ChatBubble } from '../components/ChatBubble';
 import { TaskWrapperCard } from '../components/TaskWrapperCard';
 import { ChatMessage } from '../services/api';
@@ -33,6 +34,7 @@ interface ChatScreenProps {
 export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
+  const { activeTaskWrappers, completeTaskWrapper, skipTaskWrapper } = useTaskWrapperStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,8 +42,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [chatId, setChatId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [activeTask, setActiveTask] = useState<TaskWrapperInfo | null>(null);
-  const [isLoadingTask, setIsLoadingTask] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Определяем текущего апостола из параметров или пользователя
@@ -50,36 +50,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     ? APOSTLES.find(a => a.id === apostleId) || user?.currentApostle || APOSTLES[0]
     : user?.currentApostle || APOSTLES[0];
 
+  // Получаем активное задание для текущего апостола из store
+  const activeTask = currentApostle 
+    ? activeTaskWrappers.find(tw => tw.apostle?.id === currentApostle.id) || null
+    : null;
+
   useEffect(() => {
     if (currentApostle && user?.id) {
       console.log('💬 Инициализация чата с', currentApostle.name);
       initializeChat();
-      loadActiveTask();
     }
   }, [currentApostle?.id, user?.id]);
 
-  const loadActiveTask = async () => {
-    if (!currentApostle || !user?.id) return;
-    
-    try {
-      setIsLoadingTask(true);
-      const activeTaskWrappers = await apiService.getActiveTaskWrappers();
-      
-      // Показываем задание только если оно принадлежит текущему апостолу
-      const apostleTask = activeTaskWrappers.find(tw => tw.apostle?.id === currentApostle.id);
-      
-      if (apostleTask) {
-        setActiveTask(apostleTask);
-      } else {
-        setActiveTask(null);
-      }
-    } catch (error) {
-      console.error('❌ Ошибка загрузки активного задания:', error);
-      setActiveTask(null);
-    } finally {
-      setIsLoadingTask(false);
-    }
-  };
+
 
   const initializeChat = async () => {
     if (!currentApostle || !user?.id) return;
@@ -327,18 +310,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           style: 'default',
           onPress: async () => {
             try {
-              await apiService.completeTaskWrapper(activeTask.id);
+              await completeTaskWrapper(activeTask.id);
               
               Alert.alert(
                 'Поздравляем! 🎉',
-                'Задание успешно выполнено. Продолжайте свой путь развития!',
-                [{ text: 'OK' }]
+                'Задание успешно выполнено. Продолжайте свой путь развития!'
               );
-              
-              // Перезагружаем задание через некоторое время
-              setTimeout(() => {
-                loadActiveTask();
-              }, 1000);
             } catch (error) {
               console.error('Ошибка завершения задания:', error);
               Alert.alert('Ошибка', 'Не удалось завершить задание');
@@ -362,16 +339,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           style: 'default',
           onPress: async () => {
             try {
-              await apiService.skipTaskWrapper(activeTask.id);
+              await skipTaskWrapper(activeTask.id);
               
               Alert.alert(
                 'Задание пропущено',
-                'Переходите к следующему заданию.',
-                [{ text: 'OK' }]
+                'Переходите к следующему заданию.'
               );
-              
-              // Обновляем задание
-              loadActiveTask();
             } catch (error) {
               console.error('Ошибка пропуска задания:', error);
               Alert.alert('Ошибка', 'Не удалось пропустить задание');
@@ -456,7 +429,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           <TaskWrapperCard
             taskWrapper={activeTask}
             onPress={handleTaskPress}
-            onStatusChange={loadActiveTask}
             showActions={true}
           />
         )}

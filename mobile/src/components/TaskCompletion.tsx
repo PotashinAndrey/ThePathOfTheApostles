@@ -10,7 +10,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import apiService from '../services/apiNew';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { useUserStore } from '../stores/userStore';
 
 interface TaskCompletionProps {
@@ -39,6 +39,7 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [skipReason, setSkipReason] = useState('');
   const { token } = useUserStore();
+  const { completeTaskWrapper, skipTaskWrapper } = useTaskWrapperStore();
 
   const handleComplete = async () => {
     if (!content.trim()) {
@@ -48,7 +49,7 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
 
     setLoading(true);
     try {
-      await apiService.completeTaskWrapper(taskWrapper.id, content);
+      await completeTaskWrapper(taskWrapper.id, content);
       
       Alert.alert(
         'Поздравляем! 🎉', 
@@ -75,7 +76,7 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
   const handleSkip = async () => {
     setLoading(true);
     try {
-      await apiService.skipTaskWrapper(taskWrapper.id, skipReason);
+      await skipTaskWrapper(taskWrapper.id, skipReason);
       
       Alert.alert(
         'Задание пропущено',

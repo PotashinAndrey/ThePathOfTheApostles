@@ -8,23 +8,22 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { TaskWrapperInfo } from '../types/api';
-import apiService from '../services/apiNew';
 
 interface TaskWrapperCardProps {
   taskWrapper: TaskWrapperInfo;
   onPress?: (taskWrapper: TaskWrapperInfo) => void;
-  onStatusChange?: () => void; // Callback для обновления UI после изменения статуса
   showActions?: boolean; // Показывать ли кнопки действий
 }
 
 export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
   taskWrapper,
   onPress,
-  onStatusChange,
   showActions = true,
 }) => {
   const { theme } = useThemeStore();
+  const { activateTaskWrapper, completeTaskWrapper, skipTaskWrapper } = useTaskWrapperStore();
   const [isLoading, setIsLoading] = useState(false);
 
   const getStatusColor = () => {
@@ -60,12 +59,11 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
           onPress: async () => {
             try {
               setIsLoading(true);
-              await apiService.activateTaskWrapper(taskWrapper.id);
+              await activateTaskWrapper(taskWrapper.id);
               
               Alert.alert(
                 'Задание активировано! 🎯',
-                'Теперь вы можете выполнять это задание. Удачи!',
-                [{ text: 'OK', onPress: onStatusChange }]
+                'Теперь вы можете выполнять это задание. Удачи!'
               );
             } catch (error) {
               console.error('Ошибка активации задания:', error);
@@ -91,12 +89,11 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
           onPress: async () => {
             try {
               setIsLoading(true);
-              await apiService.completeTaskWrapper(taskWrapper.id);
+              await completeTaskWrapper(taskWrapper.id);
               
               Alert.alert(
                 'Поздравляем! 🎉',
-                'Задание успешно выполнено. Продолжайте духовный рост!',
-                [{ text: 'OK', onPress: onStatusChange }]
+                'Задание успешно выполнено. Продолжайте духовный рост!'
               );
             } catch (error) {
               console.error('Ошибка завершения задания:', error);
@@ -122,12 +119,11 @@ export const TaskWrapperCard: React.FC<TaskWrapperCardProps> = ({
           onPress: async () => {
             try {
               setIsLoading(true);
-              await apiService.skipTaskWrapper(taskWrapper.id, 'Пользователь решил пропустить задание');
+              await skipTaskWrapper(taskWrapper.id, 'Пользователь решил пропустить задание');
               
               Alert.alert(
                 'Задание пропущено',
-                'Не переживайте, вы можете продолжить духовный путь с другими заданиями.',
-                [{ text: 'OK', onPress: onStatusChange }]
+                'Не переживайте, вы можете продолжить духовный путь с другими заданиями.'
               );
             } catch (error) {
               console.error('Ошибка пропуска задания:', error);

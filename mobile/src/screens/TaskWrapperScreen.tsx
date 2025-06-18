@@ -9,8 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { TaskWrapperInfo } from '../types/api';
-import { apiClient } from '../api/client';
 
 interface TaskWrapperScreenProps {
   navigation?: any;
@@ -23,6 +23,7 @@ interface TaskWrapperScreenProps {
 
 export const TaskWrapperScreen: React.FC<TaskWrapperScreenProps> = ({ navigation, route }) => {
   const { theme } = useThemeStore();
+  const { activateTaskWrapper, completeTaskWrapper } = useTaskWrapperStore();
   const [isProcessing, setIsProcessing] = useState(false);
   
   const taskWrapper = route?.params?.taskWrapper;
@@ -57,7 +58,7 @@ export const TaskWrapperScreen: React.FC<TaskWrapperScreenProps> = ({ navigation
           onPress: async () => {
             try {
               setIsProcessing(true);
-              await apiClient.activateTaskWrapper(taskWrapper.id);
+              await activateTaskWrapper(taskWrapper.id);
               
               Alert.alert(
                 'Задание активировано! 🎯',
@@ -88,7 +89,7 @@ export const TaskWrapperScreen: React.FC<TaskWrapperScreenProps> = ({ navigation
           onPress: async () => {
             try {
               setIsProcessing(true);
-              await apiClient.completeTaskWrapper(taskWrapper.id);
+              await completeTaskWrapper(taskWrapper.id);
               
               Alert.alert(
                 'Поздравляем! 🎉',
