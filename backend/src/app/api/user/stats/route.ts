@@ -43,27 +43,17 @@ export async function GET(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Получаем активные задания пользователя
-    const activeChallenges = await prisma.challenge.findMany({
+    // Получаем активные пути
+    const activePaths = user.userProgress?.userPaths?.activePathIds || [];
+    const completedPaths = user.userProgress?.userPaths?.completedPathIds || [];
+
+    // Получаем информацию о путях
+    const pathsInfo = await prisma.path.findMany({
       where: {
         id: {
-          in: user.userProgress?.completedChallenges?.currentChallengeId ? 
-            [user.userProgress.completedChallenges.currentChallengeId] : []
+          in: [...activePaths, ...completedPaths]
         }
       },
-      include: {
-        apostle: {
-          include: {
-            virtue: true
-          }
-        }
-      }
-    });
-
-    // Получаем текущий путь
-    const activePathIds = user.userProgress?.userPaths?.activePathIds || [];
-    const currentPath = activePathIds.length > 0 ? await prisma.path.findFirst({
-      where: { id: activePathIds[0] },
       include: {
         challenges: {
           include: {
@@ -82,22 +72,27 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-    }) : null;
+    });
+
+    // Получаем текущее активное задание для определения текущего пути
+    const hasActiveTask = activePaths.length > 0;
+    const currentPath = hasActiveTask && pathsInfo.length > 0 ? pathsInfo.find(p => activePaths.includes(p.id)) : null;
 
     // Формируем ответ
     const stats: UserStatsResponse = {
       streak: user.streak,
       totalDays: user.streak, // Пока что равно streak
       challengesCompleted: user.userProgress?.completedChallenges?.completedChallengeIds.length || 0,
-      pathsCompleted: user.userProgress?.userPaths?.completedPathIds.length || 0,
+      pathsCompleted: completedPaths.length,
       currentPath: currentPath ? {
         id: currentPath.id,
         name: currentPath.name,
         description: currentPath.description,
         icon: currentPath.icon,
-        progress: 0, // Пока что 0, потом можно рассчитать
+        isActive: activePaths.includes(currentPath.id),
+        progress: 0, // TODO: Рассчитать реальный прогресс
         totalChallenges: currentPath.challenges.length,
-        completedChallenges: 0, // Пока что 0, потом можно рассчитать
+        completedChallenges: 0, // TODO: Рассчитать реальное количество
         challenges: currentPath.challenges.map(pc => ({
           id: pc.challenge.id,
           name: pc.challenge.name,
@@ -118,37 +113,87 @@ export async function GET(request: NextRequest) {
               description: pc.challenge.apostle.virtue.description
             } : undefined
           },
-          isCompleted: false, // Пока что false, потом можно рассчитать
-          isActive: false, // Пока что false, потом можно рассчитать
+          isCompleted: false, // TODO: Проверить выполнение
+          isActive: false, // TODO: Проверить активность
           order: pc.order
         }))
       } : undefined,
-      activeChallenges: activeChallenges.map(challenge => ({
-        id: challenge.id,
-        name: challenge.name,
-        description: challenge.description,
-        icon: challenge.icon,
-        apostle: {
-          id: challenge.apostle.id,
-          name: challenge.apostle.name,
-          title: challenge.apostle.title,
-          description: challenge.apostle.description,
-          archetype: challenge.apostle.archetype,
-          personality: challenge.apostle.personality,
-          icon: challenge.apostle.icon,
-          color: challenge.apostle.color,
-          virtue: challenge.apostle.virtue ? {
-            id: challenge.apostle.virtue.id,
-            name: challenge.apostle.virtue.name,
-            description: challenge.apostle.virtue.description
-          } : undefined
-        },
-        isCompleted: false,
-        isActive: true
-      }))
+      activePaths: pathsInfo
+        .filter(p => activePaths.includes(p.id))
+        .map(path => ({
+          id: path.id,
+          name: path.name,
+          description: path.description,
+          icon: path.icon,
+          isActive: true,
+          progress: 0, // TODO: Рассчитать
+          totalChallenges: path.challenges.length,
+          completedChallenges: 0, // TODO: Рассчитать
+          challenges: path.challenges.map(pc => ({
+            id: pc.challenge.id,
+            name: pc.challenge.name,
+            description: pc.challenge.description,
+            icon: pc.challenge.icon,
+            apostle: {
+              id: pc.challenge.apostle.id,
+              name: pc.challenge.apostle.name,
+              title: pc.challenge.apostle.title,
+              description: pc.challenge.apostle.description,
+              archetype: pc.challenge.apostle.archetype,
+              personality: pc.challenge.apostle.personality,
+              icon: pc.challenge.apostle.icon,
+              color: pc.challenge.apostle.color,
+              virtue: pc.challenge.apostle.virtue ? {
+                id: pc.challenge.apostle.virtue.id,
+                name: pc.challenge.apostle.virtue.name,
+                description: pc.challenge.apostle.virtue.description
+              } : undefined
+            },
+            isCompleted: false, // TODO: Проверить выполнение
+            isActive: false, // TODO: Проверить активность
+            order: pc.order
+          }))
+        })),
+      completedPaths: pathsInfo
+        .filter(p => completedPaths.includes(p.id))
+        .map(path => ({
+          id: path.id,
+          name: path.name,
+          description: path.description,
+          icon: path.icon,
+          isActive: false,
+          progress: 100,
+          totalChallenges: path.challenges.length,
+          completedChallenges: path.challenges.length,
+          challenges: path.challenges.map(pc => ({
+            id: pc.challenge.id,
+            name: pc.challenge.name,
+            description: pc.challenge.description,
+            icon: pc.challenge.icon,
+            apostle: {
+              id: pc.challenge.apostle.id,
+              name: pc.challenge.apostle.name,
+              title: pc.challenge.apostle.title,
+              description: pc.challenge.apostle.description,
+              archetype: pc.challenge.apostle.archetype,
+              personality: pc.challenge.apostle.personality,
+              icon: pc.challenge.apostle.icon,
+              color: pc.challenge.apostle.color,
+              virtue: pc.challenge.apostle.virtue ? {
+                id: pc.challenge.apostle.virtue.id,
+                name: pc.challenge.apostle.virtue.name,
+                description: pc.challenge.apostle.virtue.description
+              } : undefined
+            },
+            isCompleted: true, // Все задания в завершенном пути считаются выполненными
+            isActive: false,
+            order: pc.order
+          }))
+        }))
     };
 
     console.log('✅ Статистика пользователя получена');
+    
     return NextResponse.json<ApiResponse<UserStatsResponse>>({
       success: true,
       data: stats

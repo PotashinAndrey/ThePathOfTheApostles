@@ -13,6 +13,7 @@ import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ApostleBlockCard } from '../components/ApostleBlockCard';
 import { DailyTaskWidget } from '../components/DailyTaskWidget';
+import { TaskCompletion } from '../components/TaskCompletion';
 import { MAIN_LEARNING_PATH } from '../constants/learningPath';
 import { ApostleBlock, PathTask, LearningPath } from '../constants/learningPath';
 import { DailyTaskInfo } from '../types/api';
@@ -34,6 +35,7 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
+  const [showTaskCompletion, setShowTaskCompletion] = useState(false);
 
   useEffect(() => {
     // Разворачиваем первый блок (Петра) по умолчанию
@@ -109,37 +111,14 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
     });
   };
 
-  const handleActiveTaskComplete = async () => {
+  const handleActiveTaskComplete = () => {
     if (!activeTask) return;
+    setShowTaskCompletion(true);
+  };
 
-    Alert.alert(
-      'Завершить задание',
-      'Вы действительно выполнили это задание?',
-      [
-        { text: 'Нет', style: 'cancel' },
-        {
-          text: 'Да, завершить',
-          style: 'default',
-          onPress: async () => {
-            try {
-              await apiService.completeDailyTask(activeTask.id);
-              
-              Alert.alert(
-                'Поздравляем! 🎉',
-                'Задание успешно выполнено. Завтра вас ждет новое испытание!',
-                [{ text: 'OK' }]
-              );
-              
-              // Перезагружаем прогресс
-              loadUserProgress();
-            } catch (error) {
-              console.error('Ошибка завершения задания:', error);
-              Alert.alert('Ошибка', 'Не удалось завершить задание');
-            }
-          }
-        }
-      ]
-    );
+  const handleTaskCompleted = async () => {
+    // Перезагружаем прогресс после завершения задания
+    await loadUserProgress();
   };
 
   const handleActiveTaskSkip = async () => {
@@ -251,7 +230,7 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
              onPress={handleActiveTaskPress}
              onComplete={handleActiveTaskComplete}
              onSkip={handleActiveTaskSkip}
-             showActions={false}
+             showActions={true}
              compact={true}
            />
          </View>
@@ -311,6 +290,21 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
             Загружаем прогресс...
           </Text>
         </View>
+      )}
+
+      {/* Task Completion Modal */}
+      {activeTask && (
+        <TaskCompletion
+          task={{
+            id: activeTask.id,
+            name: activeTask.name,
+            description: activeTask.description,
+            motivationalPhrase: activeTask.motivationalPhrase,
+          }}
+          visible={showTaskCompletion}
+          onClose={() => setShowTaskCompletion(false)}
+          onCompleted={handleTaskCompleted}
+        />
       )}
     </SafeAreaView>
   );
@@ -404,24 +398,24 @@ const styles = StyleSheet.create({
 
   activeTaskSection: {
     marginHorizontal: 12,
-    marginVertical: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 2,
+    marginVertical: 4,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
 
   activeTaskTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
     textAlign: 'center',
   },
 

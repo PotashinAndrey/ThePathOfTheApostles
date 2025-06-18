@@ -42,6 +42,7 @@ export interface PathInfo {
   name: string;
   description: string;
   icon?: string;
+  isActive?: boolean;
   progress: number; // 0-100%
   totalChallenges: number;
   completedChallenges: number;
@@ -137,7 +138,8 @@ export interface UserStatsResponse {
   challengesCompleted: number;
   pathsCompleted: number;
   currentPath?: PathInfo;
-  activeChallenges: ChallengeInfo[];
+  activePaths: PathInfo[];
+  completedPaths: PathInfo[];
 }
 
 // Request types

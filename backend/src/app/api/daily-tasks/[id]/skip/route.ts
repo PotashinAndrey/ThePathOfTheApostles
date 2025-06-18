@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '../../../../../lib/auth';
 import { prisma } from '../../../../../lib/prisma';
-import { ApiResponse } from '../../../../../types/api';
+import { ApiResponse, SkipDailyTaskRequest } from '../../../../../types/api';
 
 export async function POST(
   request: NextRequest,
@@ -19,32 +19,71 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
+    console.log(`👤 Пользователь: ${user.email}`);
+
+    // Получаем данные запроса
+    const body = await request.json() as SkipDailyTaskRequest;
     const { reason } = body;
 
-    console.log(`👤 Пользователь ${user.email} пропускает задание`);
-    console.log(`📝 Причина: ${reason}`);
+    // Ищем задание по ID
+    const dailyTask = await prisma.dailyTask.findUnique({
+      where: { id: params.id },
+      include: {
+        apostle: true
+      }
+    });
 
-    // TODO: Сохранить в БД факт пропуска задания
-    // await prisma.userDailyTask.update({
-    //   where: {
-    //     userId_dailyTaskId: {
-    //       userId: user.id,
-    //       dailyTaskId: params.id
-    //     }
-    //   },
-    //   data: {
-    //     status: 'SKIPPED',
-    //     skippedAt: new Date(),
-    //     notes: reason
-    //   }
-    // });
+    if (!dailyTask) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'Daily task not found' },
+        { status: 404 }
+      );
+    }
 
-    console.log('✅ Задание помечено как пропущенное');
+    // Ищем или создаем UserDailyTask для этого пользователя и задания
+    let userDailyTask = await prisma.userDailyTask.findUnique({
+      where: {
+        userId_dailyTaskId: {
+          userId: user.id,
+          dailyTaskId: params.id
+        }
+      }
+    });
+
+    if (!userDailyTask) {
+      // Создаем новую запись, если её нет
+      userDailyTask = await prisma.userDailyTask.create({
+        data: {
+          userId: user.id,
+          dailyTaskId: params.id,
+          status: 'SKIPPED',
+          activatedAt: new Date(),
+          skippedAt: new Date(),
+          notes: reason || 'Пропущено пользователем'
+        }
+      });
+    } else {
+      // Обновляем существующую запись
+      userDailyTask = await prisma.userDailyTask.update({
+        where: {
+          userId_dailyTaskId: {
+            userId: user.id,
+            dailyTaskId: params.id
+          }
+        },
+        data: {
+          status: 'SKIPPED',
+          skippedAt: new Date(),
+          notes: reason || userDailyTask.notes || 'Пропущено пользователем'
+        }
+      });
+    }
+
+    console.log('✅ Задание отмечено как пропущенное');
 
     return NextResponse.json<ApiResponse>({
       success: true,
-      message: 'Задание отложено',
+      message: 'Task skipped successfully'
     });
 
   } catch (error) {
