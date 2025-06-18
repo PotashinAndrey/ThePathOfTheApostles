@@ -166,7 +166,7 @@ export function validateEmail(email: string): boolean {
   return emailRegex.test(email) && email.length <= 255;
 }
 
-// Создание пользователя с прогрессом
+// Создание пользователя с новой архитектурой
 export async function createUserWithProgress(userData: {
   email: string;
   name: string;
@@ -175,17 +175,11 @@ export async function createUserWithProgress(userData: {
   const { hash, salt } = await hashPassword(userData.password);
   
   // Транзакция для создания пользователя и связанных сущностей
-  return await prisma.$transaction(async (prisma) => {
-    // Создаем списки для пользователя
-    const completedChallenges = await prisma.completedChallengesList.create({
-      data: {
-        userId: '', // Будет обновлено после создания пользователя
-        completedChallengeIds: [],
-        currentChallengeId: null,
-      }
-    });
-
-    const userPaths = await prisma.userPathsList.create({
+  return await prisma.$transaction(async (tx) => {
+    console.log('📝 Создание UserPathsList...');
+    
+    // Создаем UserPathsList для управления путями пользователя
+    const userPaths = await tx.userPathsList.create({
       data: {
         userId: '', // Будет обновлено после создания пользователя
         activePathIds: [],
@@ -193,38 +187,32 @@ export async function createUserWithProgress(userData: {
       }
     });
 
-    const userAchievements = await prisma.userAchievementsList.create({
+    console.log('📝 Создание UserMeta...');
+    
+    // Создаем UserMeta для управления прогрессом пользователя
+    const userMeta = await tx.userMeta.create({
       data: {
-        userId: '', // Будет обновлено после создания пользователя
-        achievementIds: [],
+        completedTasks: [],     // ID выполненных TaskWrapper
+        activeTasks: [],        // ID активных TaskWrapper  
+        pathsId: userPaths.id,  // Ссылка на UserPathsList
+        userChatsList: [],      // Список ID чатов пользователя
       }
     });
 
-    const userApostleRelations = await prisma.userApostleRelationsList.create({
-      data: {
-        userApostleRelationIds: [],
-      }
-    });
-
-    // Создаем прогресс пользователя
-    const userProgress = await prisma.userProgress.create({
-      data: {
-        completedChallengesId: completedChallenges.id,
-        userPathsId: userPaths.id,
-        userAchievementsId: userAchievements.id,
-        userApostleRelationsId: userApostleRelations.id,
-      }
-    });
-
+    console.log('📝 Создание пользователя...');
+    
     // Создаем пользователя
-    const user = await prisma.user.create({
+    const user = await tx.user.create({
       data: {
         email: userData.email,
         name: userData.name,
         passwordHash: hash,
         salt: salt,
         status: 'ACTIVE',
-        userProgressId: userProgress.id,
+        metaId: userMeta.id,    // Связь с UserMeta вместо UserProgress
+        streak: 0,
+        avatar: null,
+        currentSubscription: 'basic', // Базовая подписка по умолчанию
       },
       select: {
         id: true,
@@ -235,22 +223,16 @@ export async function createUserWithProgress(userData: {
       }
     });
 
-    // Обновляем userId в связанных сущностях
-    await Promise.all([
-      prisma.completedChallengesList.update({
-        where: { id: completedChallenges.id },
-        data: { userId: user.id }
-      }),
-      prisma.userPathsList.update({
-        where: { id: userPaths.id },
-        data: { userId: user.id }
-      }),
-      prisma.userAchievementsList.update({
-        where: { id: userAchievements.id },
-        data: { userId: user.id }
-      }),
-    ]);
+    console.log('📝 Обновление userId в связанных сущностях...');
+    
+    // Обновляем userId в UserPathsList
+    await tx.userPathsList.update({
+      where: { id: userPaths.id },
+      data: { userId: user.id }
+    });
 
+    console.log('✅ Пользователь и связанные сущности созданы успешно');
+    
     return user;
   });
 } 

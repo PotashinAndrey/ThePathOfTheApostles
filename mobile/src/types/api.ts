@@ -42,6 +42,7 @@ export interface PathInfo {
   name: string;
   description: string;
   icon?: string;
+  isActive?: boolean;
   progress: number; // 0-100%
   totalChallenges: number;
   completedChallenges: number;
@@ -54,9 +55,28 @@ export interface ChallengeInfo {
   description: string;
   icon?: string;
   apostle: ApostleResponse;
+  totalTasks: number;
+  completedTasks: number;
   isCompleted: boolean;
   isActive: boolean;
-  order?: number;
+  tasks: TaskWrapperInfo[];
+}
+
+export interface TaskWrapperInfo {
+  id: string;
+  challengeId: string;
+  task: TaskInfo;
+  icon?: string;
+  order: number;
+  apostle?: ApostleResponse; // Может переопределять апостола испытания
+  isCompleted: boolean;
+  isActive: boolean;
+}
+
+export interface TaskInfo {
+  id: string;
+  name: string;
+  description: string;
 }
 
 // Path Task types - задания пути (не более одного в день)
@@ -134,10 +154,12 @@ export interface NotificationInfo {
 export interface UserStatsResponse {
   streak: number;
   totalDays: number;
-  challengesCompleted: number;
+  tasksCompleted: number;
   pathsCompleted: number;
   currentPath?: PathInfo;
-  activeChallenges: ChallengeInfo[];
+  activePaths: PathInfo[];
+  completedPaths: PathInfo[];
+  activeTaskWrappers: TaskWrapperInfo[];
 }
 
 // Request types

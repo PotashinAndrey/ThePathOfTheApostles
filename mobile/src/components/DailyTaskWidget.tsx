@@ -197,17 +197,17 @@ const styles = StyleSheet.create({
   },
 
   compactContainer: {
-    borderRadius: 8,
-    padding: 8,
-    marginHorizontal: 16,
-    marginBottom: 6,
+    borderRadius: 6,
+    padding: 6,
+    marginHorizontal: 0,
+    marginBottom: 0,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.03,
     shadowRadius: 1,
     elevation: 1,
   },
@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
   },
 
   compactIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 16,
+    marginRight: 8,
   },
 
   compactInfo: {
@@ -227,21 +227,21 @@ const styles = StyleSheet.create({
   },
 
   compactTaskName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     marginBottom: 2,
-    lineHeight: 16,
+    lineHeight: 14,
   },
 
   compactStatusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 6,
+    borderRadius: 4,
   },
 
   compactStatusText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
     textTransform: 'uppercase',
   },

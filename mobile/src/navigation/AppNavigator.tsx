@@ -7,11 +7,13 @@ import { Text, Platform, View, TouchableOpacity, Modal, StyleSheet } from 'react
 
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
+import { AuthGuard } from '../components/AuthGuard';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { ChatsListScreen } from '../screens/ChatsListScreen';
 import { ApostlesScreen } from '../screens/ApostlesScreen';
 import { MissionsScreen } from '../screens/MissionsScreen';
+import { ActiveTasksScreen } from '../screens/ActiveTasksScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -97,8 +99,9 @@ const MissionsStackNavigator: React.FC = () => {
         headerShown: false,
       }}
     >
-      <MissionsStack.Screen name="MissionsMain" component={MissionsScreen} />
+      <MissionsStack.Screen name="MissionsMain" component={ActiveTasksScreen} />
       <MissionsStack.Screen name="DailyTask" component={DailyTaskScreen} />
+      <MissionsStack.Screen name="PathTask" component={PathTaskScreen} />
     </MissionsStack.Navigator>
   );
 };
@@ -318,51 +321,53 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer
-      theme={{
-        dark: theme.colors.background === '#121212',
-        colors: {
-          primary: theme.colors.primary,
-          background: theme.colors.background,
-          card: theme.colors.surface,
-          text: theme.colors.text,
-          border: theme.colors.border,
-          notification: theme.colors.spiritual,
-        },
-        fonts: {
-          regular: {
-            fontFamily: 'System',
-            fontWeight: '400',
+    <AuthGuard>
+      <NavigationContainer
+        theme={{
+          dark: theme.colors.background === '#121212',
+          colors: {
+            primary: theme.colors.primary,
+            background: theme.colors.background,
+            card: theme.colors.surface,
+            text: theme.colors.text,
+            border: theme.colors.border,
+            notification: theme.colors.spiritual,
           },
-          medium: {
-            fontFamily: 'System',
-            fontWeight: '500',
+          fonts: {
+            regular: {
+              fontFamily: 'System',
+              fontWeight: '400',
+            },
+            medium: {
+              fontFamily: 'System',
+              fontWeight: '500',
+            },
+            bold: {
+              fontFamily: 'System',
+              fontWeight: '700',
+            },
+            heavy: {
+              fontFamily: 'System',
+              fontWeight: '900',
+            },
           },
-          bold: {
-            fontFamily: 'System',
-            fontWeight: '700',
-          },
-          heavy: {
-            fontFamily: 'System',
-            fontWeight: '900',
-          },
-        },
-      }}
-      onStateChange={(state) => {
-        console.log('🧭 Navigation state изменен:', state?.routes?.[0]?.name);
-      }}
-    >
-      {userIsAuthenticated ? (
-        <MainTabs />
-      ) : (
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Auth" component={AuthScreen} />
-        </Stack.Navigator>
-      )}
-    </NavigationContainer>
+        }}
+        onStateChange={(state) => {
+          console.log('🧭 Navigation state изменен:', state?.routes?.[0]?.name);
+        }}
+      >
+        {userIsAuthenticated ? (
+          <MainTabs />
+        ) : (
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="Auth" component={AuthScreen} />
+          </Stack.Navigator>
+        )}
+      </NavigationContainer>
+    </AuthGuard>
   );
 }; 

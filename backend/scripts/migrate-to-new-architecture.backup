@@ -1,0 +1,199 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function migrateToNewArchitecture() {
+  console.log('🚀 Начинаем миграцию в новую архитектуру...');
+
+  try {
+    // 1. Получаем существующие DailyTask от Петра
+    const peterTasks = await prisma.dailyTask.findMany({
+      where: {
+        apostle: {
+          name: 'Пётр'
+        }
+      },
+      include: {
+        apostle: true
+      },
+      orderBy: {
+        dayNumber: 'asc'
+      }
+    });
+
+    if (peterTasks.length === 0) {
+      console.log('⚠️ Не найдены задания Петра для миграции');
+      return;
+    }
+
+    console.log(`📝 Найдено ${peterTasks.length} заданий от Петра`);
+
+    // 2. Создаем базовые Task сущности из DailyTask
+    const tasks = [];
+    for (const dailyTask of peterTasks) {
+      const task = await prisma.task.create({
+        data: {
+          id: `peter-task-${dailyTask.dayNumber}`,
+          name: dailyTask.name,
+          description: dailyTask.description
+        }
+      });
+      tasks.push({ task, dailyTask });
+      console.log(`✅ Создано базовое задание: ${task.name}`);
+    }
+
+    // 3. Создаем испытание Петра
+    const peterChallenge = await prisma.challenge.create({
+      data: {
+        id: 'peter-stoykost-challenge',
+        name: 'Испытание Стойкости',
+        description: 'Недельное испытание от апостола Петра для развития внутренней силы и дисциплины',
+        apostleId: peterTasks[0].apostle.id,
+        orderedTasks: [] // Заполним после создания оберток
+      }
+    });
+
+    console.log(`✅ Создано испытание: ${peterChallenge.name}`);
+
+    // 4. Создаем TaskWrapper обертки для каждого задания
+    const taskWrappers = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const { task, dailyTask } = tasks[i];
+      
+      const wrapper = await prisma.taskWrapper.create({
+        data: {
+          id: `peter-wrapper-${dailyTask.dayNumber}`,
+          challengeId: peterChallenge.id,
+          taskId: task.id,
+          order: dailyTask.dayNumber,
+          apostleId: dailyTask.apostle.id,
+          icon: '🗿' // Иконка Петра
+        }
+      });
+      
+      taskWrappers.push(wrapper);
+      console.log(`✅ Создана обертка ${wrapper.order}: ${task.name}`);
+    }
+
+    // 5. Обновляем испытание с упорядоченным списком оберток
+    await prisma.challenge.update({
+      where: { id: peterChallenge.id },
+      data: {
+        orderedTasks: taskWrappers.map(w => w.id)
+      }
+    });
+
+    console.log('✅ Обновлено испытание с упорядоченными задачами');
+
+    // 6. Создаем или обновляем "Основной путь"
+    let mainPath = await prisma.path.findFirst({
+      where: { name: 'Основной путь' }
+    });
+
+    if (!mainPath) {
+      mainPath = await prisma.path.create({
+        data: {
+          id: 'main-path',
+          name: 'Основной путь',
+          description: 'Вступительный путь духовного развития с испытаниями от апостолов',
+          icon: '🛤️',
+          challenges: [peterChallenge.id]
+        }
+      });
+      console.log('✅ Создан основной путь');
+    } else {
+      // Обновляем существующий путь
+      const currentChallenges = mainPath.challenges || [];
+      if (!currentChallenges.includes(peterChallenge.id)) {
+        await prisma.path.update({
+          where: { id: mainPath.id },
+          data: {
+            challenges: [...currentChallenges, peterChallenge.id]
+          }
+        });
+        console.log('✅ Обновлен основной путь с испытанием Петра');
+      }
+    }
+
+    // 7. Миграция пользователей: UserProgress -> UserMeta
+    const usersWithProgress = await prisma.user.findMany({
+      where: {
+        userProgressId: { not: null }
+      },
+      include: {
+        userProgress: {
+          include: {
+            completedChallenges: true,
+            userPaths: true
+          }
+        }
+      }
+    });
+
+    console.log(`👥 Мигрируем ${usersWithProgress.length} пользователей...`);
+
+    for (const user of usersWithProgress) {
+      if (!user.userProgress) continue;
+
+      // Создаем UserMeta
+      const userMeta = await prisma.userMeta.create({
+        data: {
+          id: `meta-${user.id}`,
+          completedTasks: [], // Пока пустой, заполним позже если нужно
+          activeTasks: [], // Пока пустой
+          pathsId: user.userProgress.userPathsId,
+          userChatsList: [] // Заполним из существующих чатов
+        }
+      });
+
+      // Получаем чаты пользователя
+      const userChats = await prisma.chat.findMany({
+        where: { userId: user.id },
+        select: { id: true }
+      });
+
+      // Обновляем UserMeta с чатами
+      await prisma.userMeta.update({
+        where: { id: userMeta.id },
+        data: {
+          userChatsList: userChats.map(chat => chat.id)
+        }
+      });
+
+      // Обновляем ссылку на UserMeta в User
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          metaId: userMeta.id
+        }
+      });
+
+      console.log(`✅ Мигрирован пользователь: ${user.email}`);
+    }
+
+    console.log('🎉 Миграция завершена успешно!');
+    console.log('\n📋 Что создано:');
+    console.log(`- ${tasks.length} базовых заданий (Task)`);
+    console.log(`- ${taskWrappers.length} оберток заданий (TaskWrapper)`);
+    console.log(`- 1 испытание Петра (Challenge)`);
+    console.log(`- 1 основной путь (Path)`);
+    console.log(`- ${usersWithProgress.length} пользовательских мета (UserMeta)`);
+
+  } catch (error) {
+    console.error('❌ Ошибка при миграции:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Запуск миграции
+if (require.main === module) {
+  migrateToNewArchitecture()
+    .catch((error) => {
+      console.error('💥 Критическая ошибка:', error);
+      process.exit(1);
+    });
+}
+
+export default migrateToNewArchitecture; 

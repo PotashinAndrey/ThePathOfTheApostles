@@ -12,10 +12,10 @@ import {
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
 import { ApostleBlockCard } from '../components/ApostleBlockCard';
-import { DailyTaskWidget } from '../components/DailyTaskWidget';
+import { TaskWrapperCard } from '../components/TaskWrapperCard';
 import { MAIN_LEARNING_PATH } from '../constants/learningPath';
 import { ApostleBlock, PathTask, LearningPath } from '../constants/learningPath';
-import { DailyTaskInfo } from '../types/api';
+import { TaskWrapperInfo } from '../types/api';
 import apiService from '../services/apiNew';
 
 interface PathScreenProps {
@@ -33,7 +33,9 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
   const [learningPath, setLearningPath] = useState<LearningPath>(MAIN_LEARNING_PATH);
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
-  const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
+  const [activeTaskWrappers, setActiveTaskWrappers] = useState<TaskWrapperInfo[]>([]);
+  const [hasActivePath, setHasActivePath] = useState<boolean>(false);
+  const [isStartingPath, setIsStartingPath] = useState<boolean>(false);
 
   useEffect(() => {
     // Разворачиваем первый блок (Петра) по умолчанию
@@ -41,7 +43,6 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
       'peter-block': true,
     });
     
-    // TODO: Загрузить прогресс пользователя с сервера
     loadUserProgress();
   }, []);
 
@@ -49,41 +50,73 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
     try {
       setLoading(true);
       
-      // Загружаем активное задание
-      const activeTaskData = await apiService.getActiveTask();
-      if (activeTaskData.hasActiveTask && activeTaskData.currentTask) {
-        setActiveTask(activeTaskData.currentTask);
-        updateTaskStatus(activeTaskData.currentTask);
+      // Сначала проверяем активные пути
+      const paths = await apiService.getPaths();
+      const hasActive = paths.some(path => path.isActive);
+      setHasActivePath(hasActive);
+      
+      if (hasActive) {
+        // Если есть активные пути, загружаем задания
+        const taskWrappers = await apiService.getActiveTaskWrappers();
+        setActiveTaskWrappers(taskWrappers);
+        console.log('✅ Загружено заданий:', taskWrappers.length);
+      } else {
+        console.log('⚠️ У пользователя нет активных путей');
+        setActiveTaskWrappers([]);
       }
       
     } catch (error) {
       console.error('Ошибка загрузки прогресса:', error);
+      setActiveTaskWrappers([]);
+      setHasActivePath(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateTaskStatus = (task: DailyTaskInfo) => {
-    setLearningPath(prevPath => ({
-      ...prevPath,
-      blocks: prevPath.blocks.map(block => {
-        if (block.apostleId === task.apostleId) {
-          return {
-            ...block,
-            tasks: block.tasks.map(blockTask => {
-              if (blockTask.dayNumber === task.dayNumber) {
-                return {
-                  ...blockTask,
-                  status: task.status as any,
-                };
+  const handleStartMainPath = async () => {
+    try {
+      setIsStartingPath(true);
+      
+      Alert.alert(
+        'Начать Путь Апостолов',
+        'Вы готовы начать свое духовное путешествие? Первое задание будет активировано автоматически.',
+        [
+          { text: 'Не сейчас', style: 'cancel' },
+          {
+            text: 'Начать путь',
+            style: 'default',
+            onPress: async () => {
+              try {
+                await apiService.startPath('main-path');
+                
+                Alert.alert(
+                  'Путь начат! 🎯',
+                  'Добро пожаловать в Путь Апостолов! Ваше первое задание активировано.',
+                  [{ text: 'OK', onPress: loadUserProgress }]
+                );
+              } catch (error) {
+                console.error('Ошибка активации пути:', error);
+                Alert.alert('Ошибка', 'Не удалось активировать путь');
               }
-              return blockTask;
-            }),
-          };
-        }
-        return block;
-      }),
-    }));
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Ошибка:', error);
+    } finally {
+      setIsStartingPath(false);
+    }
+  };
+
+  const refreshTaskWrappers = async () => {
+    try {
+      const taskWrappers = await apiService.getActiveTaskWrappers();
+      setActiveTaskWrappers(taskWrappers);
+    } catch (error) {
+      console.error('Ошибка обновления заданий:', error);
+    }
   };
 
   const handleToggleExpand = (blockId: string) => {
@@ -100,79 +133,10 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
     });
   };
 
-  const handleActiveTaskPress = () => {
-    if (!activeTask) return;
-    
-    navigation?.navigate?.('DailyTask', {
-      taskId: activeTask.id,
-      task: activeTask,
+  const handleTaskWrapperPress = (taskWrapper: TaskWrapperInfo) => {
+    navigation?.navigate?.('PathTask', {
+      taskWrapper: taskWrapper,
     });
-  };
-
-  const handleActiveTaskComplete = async () => {
-    if (!activeTask) return;
-
-    Alert.alert(
-      'Завершить задание',
-      'Вы действительно выполнили это задание?',
-      [
-        { text: 'Нет', style: 'cancel' },
-        {
-          text: 'Да, завершить',
-          style: 'default',
-          onPress: async () => {
-            try {
-              await apiService.completeDailyTask(activeTask.id);
-              
-              Alert.alert(
-                'Поздравляем! 🎉',
-                'Задание успешно выполнено. Завтра вас ждет новое испытание!',
-                [{ text: 'OK' }]
-              );
-              
-              // Перезагружаем прогресс
-              loadUserProgress();
-            } catch (error) {
-              console.error('Ошибка завершения задания:', error);
-              Alert.alert('Ошибка', 'Не удалось завершить задание');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleActiveTaskSkip = async () => {
-    if (!activeTask) return;
-
-    Alert.alert(
-      'Оставить задание',
-      'Задание останется активным и вы сможете вернуться к нему завтра.',
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Оставить',
-          style: 'default',
-          onPress: async () => {
-            try {
-              await apiService.skipDailyTask(activeTask.id);
-              
-              Alert.alert(
-                'Задание отложено',
-                'Вы можете вернуться к нему в любое время.',
-                [{ text: 'OK' }]
-              );
-              
-              // Перезагружаем прогресс
-              loadUserProgress();
-            } catch (error) {
-              console.error('Ошибка пропуска задания:', error);
-              Alert.alert('Ошибка', 'Не удалось отложить задание');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const getOverallProgress = () => {
@@ -240,20 +204,51 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
          </Text>
        </View>
 
-       {/* Active Task Widget */}
-       {activeTask && (
+       {/* Start Path Button */}
+       {!hasActivePath && !loading && (
+         <View style={[styles.startPathSection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary }]}>
+           <Text style={[styles.startPathIcon]}>🚀</Text>
+           <Text style={[styles.startPathTitle, { color: theme.colors.text }]}>
+             Добро пожаловать в Путь Апостолов!
+           </Text>
+           <Text style={[styles.startPathDescription, { color: theme.colors.textSecondary }]}>
+             Начните свое духовное путешествие. Первое задание будет активировано автоматически.
+           </Text>
+           <TouchableOpacity
+             style={[
+               styles.startPathButton,
+               { backgroundColor: theme.colors.primary },
+               isStartingPath && { opacity: 0.7 }
+             ]}
+             onPress={handleStartMainPath}
+             disabled={isStartingPath}
+           >
+             {isStartingPath ? (
+               <ActivityIndicator size="small" color="#FFFFFF" />
+             ) : (
+               <Text style={styles.startPathButtonText}>
+                 Начать Путь Апостолов
+               </Text>
+             )}
+           </TouchableOpacity>
+         </View>
+       )}
+
+       {/* Active TaskWrappers */}
+       {activeTaskWrappers.length > 0 && (
          <View style={[styles.activeTaskSection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary }]}>
            <Text style={[styles.activeTaskTitle, { color: theme.colors.text }]}>
-             🎯 Задание дня
+             🎯 Активные задания ({activeTaskWrappers.length})
            </Text>
-           <DailyTaskWidget
-             task={activeTask}
-             onPress={handleActiveTaskPress}
-             onComplete={handleActiveTaskComplete}
-             onSkip={handleActiveTaskSkip}
-             showActions={false}
-             compact={true}
-           />
+           {activeTaskWrappers.map((taskWrapper) => (
+             <TaskWrapperCard
+               key={taskWrapper.id}
+               taskWrapper={taskWrapper}
+               onPress={() => handleTaskWrapperPress(taskWrapper)}
+               onStatusChange={refreshTaskWrappers}
+               showActions={true}
+             />
+           ))}
          </View>
        )}
 
@@ -312,6 +307,8 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
           </Text>
         </View>
       )}
+
+
     </SafeAreaView>
   );
 };
@@ -404,25 +401,76 @@ const styles = StyleSheet.create({
 
   activeTaskSection: {
     marginHorizontal: 12,
+    marginVertical: 4,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+
+  activeTaskTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+
+  startPathSection: {
+    marginHorizontal: 12,
     marginVertical: 8,
-    padding: 12,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 2,
+    borderStyle: 'solid',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
+    elevation: 2,
   },
 
-  activeTaskTitle: {
-    fontSize: 16,
+  startPathIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+
+  startPathTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
+  },
+
+  startPathDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  startPathButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 16,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+
+  startPathButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 
   scrollView: {

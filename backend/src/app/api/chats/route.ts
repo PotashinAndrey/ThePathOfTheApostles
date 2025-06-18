@@ -85,7 +85,6 @@ export async function GET(request: NextRequest) {
         id: chat.currentChallenge.id,
         name: chat.currentChallenge.name,
         description: chat.currentChallenge.description,
-        icon: chat.currentChallenge.icon,
         apostle: {
           id: chat.apostle.id,
           name: chat.apostle.name,
@@ -101,8 +100,11 @@ export async function GET(request: NextRequest) {
             description: chat.apostle.virtue.description
           } : undefined
         },
+        totalTasks: 0,        // TODO: подсчитать реальное количество заданий
+        completedTasks: 0,    // TODO: подсчитать выполненные задания
         isCompleted: false,
-        isActive: true
+        isActive: true,
+        tasks: []            // TODO: загрузить TaskWrapper для этого Challenge
       } : undefined
     }));
 

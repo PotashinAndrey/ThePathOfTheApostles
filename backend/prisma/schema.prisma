@@ -32,67 +32,78 @@ model User {
   streak              Int         @default(0) // Стрик в днях
   avatar              String?     // Ссылка на изображение
   status              UserStatus  @default(ACTIVE) // Статус
-  userProgressId      String?     @unique // meta - id сущности где хранится мета информация
+  metaId              String?     @unique // meta - id сущности UserMeta
   
   // Relations
-  userProgress        UserProgress?     @relation(fields: [userProgressId], references: [id])
+  meta                UserMeta?           @relation(fields: [metaId], references: [id])
   chats               Chat[]
-  challengeResults    ChallengeResult[]
+  taskWrapperResults  TaskWrapperResult[]
   userNotes           UserNote[]
   apostleRelations    UserApostleRelation[]
-  userDailyTasks      UserDailyTask[]
 
   @@map("users")
 }
 
 // 2. Сущность пути
 model Path {
-  id          String        @id @default(cuid())
-  name        String        // Название
-  description String        @db.Text // Описание
-  icon        String?       // Иконка - ссылка
+  id          String      @id @default(cuid())
+  name        String      // Название
+  description String      @db.Text // Описание
+  icon        String?     // Иконка - ссылка
+  challenges  String[]    // Упорядоченный массив ID испытаний
   
   // Relations
-  challenges  PathChallenge[]
   chats       Chat[]
-  userPaths   UserPathsList[]
 
   @@map("paths")
 }
 
-// Медиатор для связи пути и заданий
-model PathChallenge {
-  id          String    @id @default(cuid())
-  pathId      String
-  challengeId String
-  order       Int       // Порядковый номер
-  
-  path        Path      @relation(fields: [pathId], references: [id], onDelete: Cascade)
-  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  
-  @@unique([pathId, challengeId])
-  @@map("path_challenges")
-}
-
-// 3. Сущность задания
+// 3. Сущность испытания (группирует задания апостола)
 model Challenge {
-  id          String    @id @default(cuid())
-  name        String    // Название
-  description String    @db.Text // Описание
-  apostleId   String    // ID апостола
-  icon        String?   // Иконка - ссылка, не всегда есть
+  id           String   @id @default(cuid())
+  name         String   // Название испытания
+  description  String?  @db.Text // Описание испытания
+  apostleId    String   // ID апостола которому принадлежит испытание
+  orderedTasks String[] // Упорядоченный массив ID TaskWrapper
   
   // Relations
-  apostle         Apostle           @relation(fields: [apostleId], references: [id])
-  pathChallenges  PathChallenge[]
-  challengeResults ChallengeResult[]
-  chats           Chat[]
-  chatMessages    ChatMessage[]
+  apostle      Apostle  @relation(fields: [apostleId], references: [id])
+  chats        Chat[]
+  chatMessages ChatMessage[]
 
   @@map("challenges")
 }
 
-// 4. Сущность апостола
+// 4. Сущность обертки задания
+model TaskWrapper {
+  id          String  @id @default(cuid())
+  challengeId String  // ID испытания к которому принадлежит обертка
+  taskId      String  // ID задания которое оборачивает эта сущность  
+  icon        String? // Иконка/картинка если есть
+  order       Int     @default(0) // Число которое определяет порядок заданий в испытании
+  apostleId   String? // Если есть апостол для этого задания (переопределение)
+  
+  // Relations
+  task        Task     @relation(fields: [taskId], references: [id])
+  apostle     Apostle? @relation(fields: [apostleId], references: [id])
+  results     TaskWrapperResult[]
+
+  @@map("task_wrappers")
+}
+
+// 5. Сущность базового задания
+model Task {
+  id          String        @id @default(cuid())
+  name        String        // Название задания
+  description String        @db.Text // Описание задания
+  
+  // Relations
+  wrappers    TaskWrapper[]
+
+  @@map("tasks")
+}
+
+// 6. Сущность апостола
 model Apostle {
   id               String    @id @default(cuid())
   name             String    // Имя
@@ -109,38 +120,38 @@ model Apostle {
   // Relations
   virtue           Skill?              @relation(fields: [virtueId], references: [id])
   challenges       Challenge[]
+  taskWrappers     TaskWrapper[]
   chats            Chat[]
   chatMessages     ChatMessage[]
   apostleRelations UserApostleRelation[]
   phraseSets       ApostlePhraseSets?  @relation(fields: [phraseSetsId], references: [id])
-  dailyTasks       DailyTask[]
 
   @@map("apostles")
 }
 
-// 5. Сущность чата
+// 7. Сущность чата
 model Chat {
-  id                    String    @id @default(cuid())
-  name                  String    // Название чата
+  id                    String     @id @default(cuid())
+  name                  String     // Название чата
   userId                String
   apostleId             String
-  pathId                String?   // Если есть связь с конкретным путем
-  currentChallengeId    String?   // Если есть связь с конкретным текущим заданием
-  phraseSetsId          String?   // Ссылка на массив id наборов фраз
-  currentChatPresetId   String?   // ID текущего пресета темы чата
+  pathId                String?    // Если есть связь с конкретным путем
+  currentChallengeId    String?    // Если есть связь с конкретным текущим испытанием
+  phraseSetsId          String?    // Ссылка на массив id наборов фраз
+  currentChatPresetId   String?    // ID текущего пресета темы чата
   
   // Relations
-  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apostle               Apostle     @relation(fields: [apostleId], references: [id])
-  path                  Path?       @relation(fields: [pathId], references: [id])
-  currentChallenge      Challenge?  @relation(fields: [currentChallengeId], references: [id])
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apostle               Apostle    @relation(fields: [apostleId], references: [id])
+  path                  Path?      @relation(fields: [pathId], references: [id])
+  currentChallenge      Challenge? @relation(fields: [currentChallengeId], references: [id])
   chatPreset            ChatPreset? @relation(fields: [currentChatPresetId], references: [id])
   messages              ChatMessage[]
 
   @@map("chats")
 }
 
-// 6. Сущность подписки
+// 8. Сущность подписки
 model Subscription {
   id    String @id @default(cuid())
   name  String // Название
@@ -149,7 +160,7 @@ model Subscription {
   @@map("subscriptions")
 }
 
-// 7. Сущность достижения
+// 9. Сущность достижения
 model Achievement {
   id          String @id @default(cuid())
   name        String // Название
@@ -162,7 +173,7 @@ model Achievement {
   @@map("achievements")
 }
 
-// 8. Сущность фичи для фичатоглинга
+// 10. Сущность фичи для фичатоглинга
 model Feature {
   id      String  @id @default(cuid())
   feature String  @unique // Название фичи
@@ -171,7 +182,7 @@ model Feature {
   @@map("features")
 }
 
-// 9. Сущность навыка - читай добродетель апостола
+// 11. Сущность навыка - читай добродетель апостола
 model Skill {
   id          String    @id @default(cuid())
   name        String    // Название
@@ -183,7 +194,7 @@ model Skill {
   @@map("skills")
 }
 
-// 10. Сущность набора фраз
+// 12. Сущность набора фраз
 model PhraseSet {
   id       String   @id @default(cuid())
   phraseIds String[] // Массив id фраз
@@ -206,7 +217,7 @@ model ApostlePhraseSets {
   @@map("apostle_phrase_sets")
 }
 
-// 11. Сущность пресета для чата
+// 13. Сущность пресета для чата
 model ChatPreset {
   id           String @id @default(cuid())
   textPrompt   String @db.Text // Текстовый промпт для ИИ
@@ -217,43 +228,52 @@ model ChatPreset {
   @@map("chat_presets")
 }
 
-// 12. Сущность ChallengeResult - результат/итог пройденного задания
-model ChallengeResult {
-  id          String   @id @default(cuid())
-  challengeId String   // ID задания
-  userId      String   // ID пользователя
-  content     String   @db.Text // Текст / ссылка на файл
-  createdAt   DateTime @default(now())
-  result      String   @db.Text // Результат выполнения задания от ИИ
+// 14. Сущность результата выполнения TaskWrapper
+model TaskWrapperResult {
+  id            String      @id @default(cuid())
+  taskWrapperId String      // ID обертки задания
+  userId        String      // ID пользователя
+  content       String      @db.Text // Текст / ссылка на файл
+  createdAt     DateTime    @default(now())
+  result        String      @db.Text // Результат выполнения задания от ИИ
   
   // Relations
-  challenge   Challenge @relation(fields: [challengeId], references: [id])
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskWrapper   TaskWrapper @relation(fields: [taskWrapperId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("challenge_results")
+  @@map("task_wrapper_results")
 }
 
-// 13. Мета прогресса юзера
-model UserProgress {
-  id                       String  @id @default(cuid())
-  completedChallengesId    String? @unique // ID сущности с выполненными заданиями
-  userPathsId              String? @unique // ID медиатора UserPathsList
-  userApostleRelationsId   String? @unique // ID массива отношений с апостолами
-  userNoteId               String? @unique // Ссылка на ID заметки о пользователе
-  userAchievementsId       String? @unique // ID сущности UserAchievementsList
+// 15. Мета пользователя
+model UserMeta {
+  id                String   @id @default(cuid())
+  completedTasks    String[] // Список выполненных ID TaskWrapper
+  activeTasks       String[] // Список активных ID TaskWrapper  
+  pathsId           String?  @unique // ID медиатора UserPathsList
+  userChatsList     String[] // Список ID чатов пользователя
   
   // Relations
-  user                     User?                     @relation
-  completedChallenges      CompletedChallengesList?  @relation(fields: [completedChallengesId], references: [id])
-  userPaths                UserPathsList?            @relation(fields: [userPathsId], references: [id])
-  userApostleRelations     UserApostleRelationsList? @relation(fields: [userApostleRelationsId], references: [id])
-  userNote                 UserNote?                 @relation(fields: [userNoteId], references: [id])
-  userAchievements         UserAchievementsList?     @relation(fields: [userAchievementsId], references: [id])
+  user              User?
+  paths             UserPathsList? @relation(fields: [pathsId], references: [id])
 
-  @@map("user_progress")
+  @@map("user_meta")
 }
 
-// 14. UserApostleRelation - сущность отношений пользователя с апостолом
+// 16. UserPathsList
+model UserPathsList {
+  id                String   @id @default(cuid())
+  userId            String
+  activePathIds     String[] // Активные пути
+  completedPathIds  String[] // Завершенные пути
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  userMeta          UserMeta[]
+
+  @@map("user_paths_list")
+}
+
+// 17. UserApostleRelation - сущность отношений пользователя с апостолом
 model UserApostleRelation {
   id                String   @id @default(cuid())
   userId            String
@@ -270,18 +290,7 @@ model UserApostleRelation {
   @@map("user_apostle_relations")
 }
 
-// 15. UserApostleRelationsList - список отношений пользователя с апостолами
-model UserApostleRelationsList {
-  id                        String   @id @default(cuid())
-  userApostleRelationIds    String[] // Список ID сущностей UserApostleRelation
-  
-  // Relations
-  userProgress              UserProgress[]
-
-  @@map("user_apostle_relations_list")
-}
-
-// 16. Сущность фразы
+// 18. Сущность фразы
 model Phrase {
   id      String   @id @default(cuid())
   content String   @db.Text // Текст
@@ -292,7 +301,7 @@ model Phrase {
   @@map("phrases")
 }
 
-// 17. ChatMessage - сущность сообщения чата (обновленная)
+// 19. ChatMessage - сущность сообщения чата
 model ChatMessage {
   id                  String        @id @default(cuid())
   chatId              String
@@ -300,7 +309,7 @@ model ChatMessage {
   sender              MessageSender // 'user' | 'apostle'
   content             String        @db.Text
   voiceUrl            String?       // URL голосового сообщения
-  relatedChallengeId  String?       // Связь с заданием
+  relatedChallengeId  String?       // Связь с испытанием
   createdAt           DateTime      @default(now())
   metadata            Json?         // JSONB — тема, эмоции, теги
   
@@ -312,7 +321,7 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
-// 18. Заметка о пользователе
+// 20. Заметка о пользователе
 model UserNote {
   id     String   @id @default(cuid())
   userId String
@@ -322,38 +331,8 @@ model UserNote {
   
   // Relations
   user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userProgress UserProgress[]
 
   @@map("user_notes")
-}
-
-// 19. CompletedChallengesList - список выполненных заданий
-model CompletedChallengesList {
-  id                    String    @id @default(cuid())
-  userId                String
-  completedChallengeIds String[]  // Массив ID выполненных заданий
-  currentChallengeId    String?   // ID текущего задания
-  updatedAt             DateTime  @updatedAt
-  
-  // Relations
-  userProgress          UserProgress[]
-
-  @@map("completed_challenges_list")
-}
-
-// 20. UserPathsList - список путей пользователя
-model UserPathsList {
-  id                String   @id @default(cuid())
-  userId            String
-  activePathIds     String[] // Активные пути
-  completedPathIds  String[] // Завершенные пути
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  paths             Path[]
-  userProgress      UserProgress[]
-
-  @@map("user_paths_list")
 }
 
 // 21. UserAchievementsList - список достижений пользователя
@@ -364,54 +343,53 @@ model UserAchievementsList {
   
   // Relations
   achievements   Achievement[]
-  userProgress   UserProgress[]
 
   @@map("user_achievements_list")
 }
 
-// 22. DailyTask - ежедневные задания для основного пути
-model DailyTask {
-  id                 String          @id @default(cuid())
-  name               String          // Название задания
-  description        String          @db.Text // Описание задания
-  apostleId          String          // ID апостола
-  dayNumber          Int             // Номер дня в неделе (1-7)
-  motivationalPhrase String          @db.Text // Мотивационная фраза
-  createdAt          DateTime        @default(now())
-  
-  // Relations
-  apostle            Apostle         @relation(fields: [apostleId], references: [id])
-  userTasks          UserDailyTask[]
-  
-  @@unique([apostleId, dayNumber])
-  @@map("daily_tasks")
-}
+// ===== ОТКЛЮЧЕННАЯ СИСТЕМА ЕЖЕДНЕВНЫХ ЗАДАНИЙ =====
+// Система DailyTask и UserDailyTask отключена
+// Будет переработана позже на основе новой архитектуры
 
-// 23. UserDailyTask - прогресс пользователя по ежедневному заданию
-model UserDailyTask {
-  id           String                     @id @default(cuid())
-  userId       String
-  dailyTaskId  String
-  status       UserDailyTaskStatus        @default(PENDING)
-  activatedAt  DateTime?                  // Дата активации
-  completedAt  DateTime?                  // Дата завершения
-  skippedAt    DateTime?                  // Дата пропуска
-  content      String?                    @db.Text // Заметки пользователя
-  notes        String?                    @db.Text // Дополнительные заметки
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
-  
-  // Relations
-  user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dailyTask    DailyTask                  @relation(fields: [dailyTaskId], references: [id])
-  
-  @@unique([userId, dailyTaskId])
-  @@map("user_daily_tasks")
-}
+// model DailyTask {
+//   id                 String          @id @default(cuid())
+//   name               String          
+//   description        String          @db.Text 
+//   apostleId          String          
+//   dayNumber          Int             
+//   motivationalPhrase String          @db.Text 
+//   createdAt          DateTime        @default(now())
+//   
+//   apostle            Apostle         @relation(fields: [apostleId], references: [id])
+//   userTasks          UserDailyTask[]
+//   
+//   @@unique([apostleId, dayNumber])
+//   @@map("daily_tasks")
+// }
 
-enum UserDailyTaskStatus {
-  PENDING   // Ожидает активации
-  ACTIVE    // Активно
-  COMPLETED // Выполнено
-  SKIPPED   // Пропущено
-}
+// model UserDailyTask {
+//   id           String                     @id @default(cuid())
+//   userId       String
+//   dailyTaskId  String
+//   status       UserDailyTaskStatus        @default(PENDING)
+//   activatedAt  DateTime?                  
+//   completedAt  DateTime?                  
+//   skippedAt    DateTime?                  
+//   content      String?                    @db.Text 
+//   notes        String?                    @db.Text 
+//   createdAt    DateTime                   @default(now())
+//   updatedAt    DateTime                   @updatedAt
+//   
+//   user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+//   dailyTask    DailyTask                  @relation(fields: [dailyTaskId], references: [id])
+//   
+//   @@unique([userId, dailyTaskId])
+//   @@map("user_daily_tasks")
+// }
+
+// enum UserDailyTaskStatus {
+//   PENDING   
+//   ACTIVE    
+//   COMPLETED 
+//   SKIPPED   
+// }

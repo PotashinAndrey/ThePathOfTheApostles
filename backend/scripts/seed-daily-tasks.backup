@@ -2,12 +2,47 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function createNewArchitecture() {
-  console.log('🚀 Создаем новую архитектуру Task->TaskWrapper->Challenge->Path...');
+async function seedDailyTasks() {
+  console.log('🌱 Начинаем заполнение ежедневных заданий...');
 
   try {
-    // 1. Данные заданий Петра (из предыдущего скрипта seed-daily-tasks.ts)
-    const peterTasksData = [
+    // Проверяем, есть ли апостол Петр
+    let peter = await prisma.apostle.findFirst({
+      where: { name: 'Пётр' }
+    });
+
+    if (!peter) {
+      console.log('📝 Создаем апостола Петра...');
+      
+      // Создаем добродетель для Петра
+      const virtue = await prisma.skill.create({
+        data: {
+          name: 'Стойкость',
+          description: 'Внутренняя сила и непоколебимость духа'
+        }
+      });
+
+      // Создаем апостола Петра
+      peter = await prisma.apostle.create({
+        data: {
+          id: 'peter',
+          name: 'Пётр',
+          title: 'Апостол стойкости',
+          description: 'Учитель внутренней силы и непоколебимости',
+          archetype: 'Стойкий',
+          personality: 'Мудрый наставник, который учит дисциплине через практические вызовы',
+          icon: '🗿',
+          color: '#8B4513',
+          virtueId: virtue.id,
+          systemPrompt: 'Ты - апостол Пётр, наставник в вопросах стойкости и дисциплины. Твоя речь прямая, без лишних слов. Ты помогаешь людям развивать внутреннюю силу через практические задания.'
+        }
+      });
+
+      console.log('✅ Апостол Пётр создан');
+    }
+
+    // Создаем ежедневные задания для Петра
+    const dailyTasks = [
       {
         name: 'Принятие вызова',
         description: 'Найди одну привычку, которая тебе мешает, и откажись от неё на один день. Это может быть проверка соцсетей, сладости или что-то другое. Главное - осознанно выбрать и продержаться.',
@@ -52,121 +87,57 @@ async function createNewArchitecture() {
       }
     ];
 
-    // 2. Получаем апостола Петра
-    const peter = await prisma.apostle.findFirst({
-      where: { name: 'Пётр' }
-    });
+    console.log('📝 Создаем ежедневные задания...');
 
-    if (!peter) {
-      console.error('❌ Апостол Пётр не найден');
-      return;
-    }
-
-    console.log(`👤 Найден апостол: ${peter.name}`);
-
-    // 3. Создаем базовые Task сущности
-    const tasks = [];
-    for (const taskData of peterTasksData) {
-      const task = await prisma.task.create({
-        data: {
-          id: `peter-task-${taskData.dayNumber}`,
-          name: taskData.name,
-          description: taskData.description
-        }
-      });
-      tasks.push({ task, order: taskData.dayNumber });
-      console.log(`✅ Создано базовое задание: ${task.name}`);
-    }
-
-    // 4. Создаем испытание Петра
-    const peterChallenge = await prisma.challenge.create({
-      data: {
-        id: 'peter-stoykost-challenge',
-        name: 'Испытание Стойкости',
-        description: 'Недельное испытание от апостола Петра для развития внутренней силы и дисциплины',
-        apostleId: peter.id,
-        orderedTasks: [] // Заполним после создания оберток
-      }
-    });
-
-    console.log(`✅ Создано испытание: ${peterChallenge.name}`);
-
-    // 5. Создаем TaskWrapper обертки для каждого задания
-    const taskWrappers = [];
-    for (const { task, order } of tasks) {
-      const wrapper = await prisma.taskWrapper.create({
-        data: {
-          id: `peter-wrapper-${order}`,
-          challengeId: peterChallenge.id,
-          taskId: task.id,
-          order: order,
+    for (const taskData of dailyTasks) {
+      const existingTask = await prisma.dailyTask.findFirst({
+        where: {
           apostleId: peter.id,
-          icon: '🗿' // Иконка Петра
+          dayNumber: taskData.dayNumber
         }
       });
-      
-      taskWrappers.push(wrapper);
-      console.log(`✅ Создана обертка ${wrapper.order}: ${task.name}`);
+
+      if (!existingTask) {
+        await prisma.dailyTask.create({
+          data: {
+            ...taskData,
+            apostleId: peter.id
+          }
+        });
+        console.log(`✅ Создано задание дня ${taskData.dayNumber}: ${taskData.name}`);
+      } else {
+        console.log(`⏭️ Задание дня ${taskData.dayNumber} уже существует`);
+      }
     }
 
-    // 6. Обновляем испытание с упорядоченным списком оберток
-    await prisma.challenge.update({
-      where: { id: peterChallenge.id },
-      data: {
-        orderedTasks: taskWrappers.map(w => w.id)
-      }
+    // Создаем основной путь
+    const existingPath = await prisma.path.findFirst({
+      where: { name: 'Основной путь' }
     });
 
-    console.log('✅ Обновлено испытание с упорядоченными задачами');
+    if (!existingPath) {
+      console.log('📝 Создаем основной путь...');
+      
+      const mainPath = await prisma.path.create({
+        data: {
+          name: 'Основной путь',
+          description: 'Вступительный путь с ежедневными заданиями от апостолов',
+          icon: '🛤️'
+        }
+      });
 
-    // 7. Создаем основной путь
-    const mainPath = await prisma.path.create({
-      data: {
-        id: 'main-path',
-        name: 'Основной путь',
-        description: 'Вступительный путь духовного развития с испытаниями от апостолов',
-        icon: '🛤️',
-        challenges: [peterChallenge.id]
-      }
-    });
+      console.log('✅ Основной путь создан');
+    } else {
+      console.log('⏭️ Основной путь уже существует');
+    }
 
-    console.log('✅ Создан основной путь');
-
-    console.log('🎉 Новая архитектура создана успешно!');
-    console.log('\n📋 Что создано:');
-    console.log(`- ${tasks.length} базовых заданий (Task)`);
-    console.log(`- ${taskWrappers.length} оберток заданий (TaskWrapper)`);
-    console.log(`- 1 испытание Петра (Challenge)`);
-    console.log(`- 1 основной путь (Path)`);
-
-    console.log('\n🔄 Структура:');
-    console.log(`Path: ${mainPath.name} (${mainPath.id})`);
-    console.log(`  Challenge: ${peterChallenge.name} (${peterChallenge.id})`);
-    taskWrappers.forEach((wrapper, index) => {
-      const task = tasks[index];
-      console.log(`    TaskWrapper ${wrapper.order}: ${task.task.name} (${wrapper.id})`);
-    });
+    console.log('🎉 Заполнение ежедневных заданий завершено!');
 
   } catch (error) {
-    console.error('❌ Ошибка при создании архитектуры:', error);
-    throw error;
+    console.error('❌ Ошибка при заполнении:', error);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Главная функция seed
-async function main() {
-  console.log('🌱 Запуск seed с новой архитектурой...');
-  await createNewArchitecture();
-}
-
-// Запуск seed
-main()
-  .catch((error) => {
-    console.error('💥 Критическая ошибка seed:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  }); 
+seedDailyTasks(); 

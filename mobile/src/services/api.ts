@@ -506,4 +506,189 @@ export const chatAPIWithAuth = {
       return result;
     }
   },
+};
+
+// API для ежедневных заданий
+export const dailyTaskAPI = {
+  // Получение активного задания
+  getActiveTask: async (token?: string) => {
+    console.log('📅 API: Получаем активное задание');
+    
+    if (CONFIG.USE_OFFLINE_MODE) {
+      return {
+        hasActiveTask: false,
+        currentTask: null,
+        nextTask: null,
+        apostleProgress: {
+          apostleId: 'peter',
+          currentDay: 1,
+          completedTasks: 0,
+          totalTasks: 7
+        }
+      };
+    }
+    
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/daily-tasks/active`, {
+        method: 'GET',
+        headers,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ API: Активное задание получено:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ API Error в getActiveTask:', error);
+      throw error;
+    }
+  },
+
+  // Активация первого задания
+  activateFirstTask: async (token?: string) => {
+    console.log('🚀 API: Активируем первое задание');
+    
+    if (CONFIG.USE_OFFLINE_MODE) {
+      return {
+        message: 'First task activated successfully',
+        task: {
+          id: 'task-1',
+          name: 'Принятие вызова',
+          description: 'Найди одну привычку, которая тебе мешает, и откажись от неё на один день.',
+          dayNumber: 1,
+          status: 'active'
+        }
+      };
+    }
+    
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/daily-tasks/start`, {
+        method: 'POST',
+        headers,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ API: Первое задание активировано:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ API Error в activateFirstTask:', error);
+      throw error;
+    }
+  },
+
+  // Завершение задания
+  completeTask: async (taskId: string, content?: string, notes?: string, token?: string) => {
+    console.log('✅ API: Завершаем задание:', taskId);
+    
+    if (CONFIG.USE_OFFLINE_MODE) {
+      console.log('📴 Офлайн режим: Задание помечено как выполненное');
+      return {
+        success: true,
+        message: 'Task completed successfully'
+      };
+    }
+    
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/daily-tasks/${taskId}/complete`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          content,
+          notes
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ API: Задание завершено:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ API Error в completeTask:', error);
+      throw error;
+    }
+  },
+
+  // Пропуск задания
+  skipTask: async (taskId: string, reason?: string, token?: string) => {
+    console.log('⏭️ API: Пропускаем задание:', taskId);
+    
+    if (CONFIG.USE_OFFLINE_MODE) {
+      console.log('📴 Офлайн режим: Задание помечено как пропущенное');
+      return {
+        success: true,
+        message: 'Task skipped successfully'
+      };
+    }
+    
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/daily-tasks/${taskId}/skip`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          reason
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ API Error response:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ API: Задание пропущено:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ API Error в skipTask:', error);
+      throw error;
+    }
+  },
 }; 

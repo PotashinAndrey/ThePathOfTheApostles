@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { generateToken, verifyPassword } from '../../../../lib/auth';
 import { LoginRequest, AuthResponse, ApiResponse } from '../../../../types/api';
+import { RateLimiter } from '../../../../lib/rateLimiter';
 
 export async function POST(request: NextRequest) {
   console.log('🚀 Backend API /auth/login получил запрос');
@@ -20,6 +21,31 @@ export async function POST(request: NextRequest) {
         error: 'Недостает обязательных параметров: email, password'
       }, { status: 400 });
     }
+
+    // Получаем IP для rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     'unknown';
+
+    // Проверяем rate limiting (по IP + email)
+    const rateLimitKey = `${clientIP}:${email}`;
+    const rateLimitCheck = RateLimiter.isAllowed(rateLimitKey);
+    
+    if (!rateLimitCheck.allowed) {
+      console.warn('🚨 Rate limit exceeded:', { email, ip: clientIP, message: rateLimitCheck.message });
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: rateLimitCheck.message || 'Слишком много попыток входа'
+      }, { status: 429 });
+    }
+
+    // Логируем попытку входа (для мониторинга атак)
+    console.log('🔐 Попытка входа:', { 
+      email, 
+      ip: clientIP,
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      timestamp: new Date().toISOString()
+    });
 
     // Ищем пользователя по email
     console.log('🔍 Поиск пользователя с email:', email);
@@ -40,31 +66,47 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // ВАЖНО: Всегда выполняем проверку пароля чтобы предотвратить timing attacks
+    let isPasswordValid = false;
+    
+    if (user && user.status === 'ACTIVE') {
+      // Проверяем реальный пароль
+      console.log('🔐 Проверка пароля для существующего пользователя...');
+      isPasswordValid = await verifyPassword(password, user.passwordHash, user.salt);
+    } else {
+      // Для несуществующих пользователей выполняем "фиктивную" проверку
+      // чтобы время ответа было одинаковым
+      console.log('🔐 Выполняем фиктивную проверку пароля для защиты от timing attacks...');
+      const dummyHash = '$2b$10$dummyHashToPreventTimingAttacks';
+      const dummySalt = '$2b$10$dummySaltToPreventTimingAttacks';
+      await verifyPassword(password, dummyHash, dummySalt);
+    }
+
+    // Проверяем результат авторизации
     if (!user) {
-      console.error('❌ Пользователь не найден');
+      console.error('❌ Пользователь не найден (скрываем от злоумышленника)');
+      RateLimiter.recordFailedAttempt(rateLimitKey);
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Неверный email или пароль'
+        error: 'Неверные учетные данные'
       }, { status: 401 });
     }
 
     if (user.status !== 'ACTIVE') {
       console.error('❌ Аккаунт заблокирован');
+      RateLimiter.recordFailedAttempt(rateLimitKey);
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Аккаунт заблокирован'
+        error: 'Неверные учетные данные'
       }, { status: 401 });
     }
 
-    // Проверяем пароль
-    console.log('🔐 Проверка пароля...');
-    const isPasswordValid = await verifyPassword(password, user.passwordHash, user.salt);
-
     if (!isPasswordValid) {
-      console.error('❌ Неверный пароль');
+      console.error('❌ Неверный пароль (скрываем от злоумышленника)');
+      RateLimiter.recordFailedAttempt(rateLimitKey);
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Неверный email или пароль'
+        error: 'Неверные учетные данные'
       }, { status: 401 });
     }
 
@@ -81,6 +123,9 @@ export async function POST(request: NextRequest) {
     const token = generateToken(user);
 
     console.log('✅ Пользователь успешно авторизован:', user.email);
+
+    // Сбрасываем счетчик неудачных попыток при успешном входе
+    RateLimiter.recordSuccessfulLogin(rateLimitKey);
 
     // Возвращаем токен и данные пользователя
     const response: ApiResponse<AuthResponse> = {

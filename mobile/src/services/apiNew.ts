@@ -24,7 +24,8 @@ import {
   DailyTaskInfo,
   ActiveTaskResponse,
   CompleteDailyTaskRequest,
-  SkipDailyTaskRequest
+  SkipDailyTaskRequest,
+  TaskWrapperInfo
 } from '../types/api';
 
 const API_BASE_URL = CONFIG.API_BASE_URL;
@@ -112,6 +113,17 @@ class ApiService {
           }
         } catch (parseError) {
           console.error('❌ Error parsing error response:', parseError);
+        }
+        
+        // Специальная обработка различных статусов
+        if (response.status === 429) {
+          console.warn('🚨 Rate limit exceeded');
+          // errorMessage уже содержит сообщение от сервера
+        } else if (response.status === 401) {
+          console.warn('🔐 Unauthorized - invalid credentials');
+          // Сохраняем сообщение сервера для правильной обработки
+        } else if (response.status >= 500) {
+          errorMessage = 'Проблема на сервере. Попробуйте позже';
         }
         
         throw new Error(errorMessage);
@@ -369,6 +381,20 @@ class ApiService {
     }
   }
 
+  async startPath(id: string): Promise<void> {
+    const response = await this.request<ApiResponse>(
+      `/paths/${id}/start`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.error || 'Ошибка активации пути');
+    }
+  }
+
   // Achievements API
   async getAchievements(): Promise<Achievement[]> {
     const response = await this.request<ApiResponse<Achievement[]>>('/achievements');
@@ -439,19 +465,27 @@ class ApiService {
     }
   }
 
-  // Path Tasks API
-  async getActiveTask(): Promise<ActiveTaskResponse> {
-    const response = await this.request<ApiResponse<ActiveTaskResponse>>('/daily-tasks/active');
+  // Legacy Daily Tasks API (ОТКЛЮЧЕНО - используйте TaskWrapper API)
+
+  // TaskWrapper API (новая архитектура)
+  async getAllTaskWrappers(): Promise<TaskWrapperInfo[]> {
+    const response = await this.request<ApiResponse<TaskWrapperInfo[]>>('/task-wrappers');
     
     if (response.success && response.data) {
       return response.data;
     } else {
-      throw new Error(response.error || 'Ошибка получения активного задания');
+      throw new Error(response.error || 'Ошибка получения заданий');
     }
   }
 
-  async getDailyTask(id: string): Promise<DailyTaskInfo> {
-    const response = await this.request<ApiResponse<DailyTaskInfo>>(`/daily-tasks/${id}`);
+  // Для обратной совместимости
+  async getActiveTaskWrappers(): Promise<TaskWrapperInfo[]> {
+    const allTaskWrappers = await this.getAllTaskWrappers();
+    return allTaskWrappers.filter(tw => tw.isActive);
+  }
+
+  async getTaskWrapper(id: string): Promise<TaskWrapperInfo> {
+    const response = await this.request<ApiResponse<TaskWrapperInfo>>(`/task-wrappers/${id}`);
     
     if (response.success && response.data) {
       return response.data;
@@ -460,12 +494,26 @@ class ApiService {
     }
   }
 
-  async completeDailyTask(id: string, request: CompleteDailyTaskRequest = {}): Promise<void> {
+  async activateTaskWrapper(id: string): Promise<void> {
     const response = await this.request<ApiResponse>(
-      `/daily-tasks/${id}/complete`,
+      `/task-wrappers/${id}/activate`,
       {
         method: 'POST',
-        body: JSON.stringify(request),
+        body: JSON.stringify({}),
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.error || 'Ошибка активации задания');
+    }
+  }
+
+  async completeTaskWrapper(id: string, content?: string): Promise<void> {
+    const response = await this.request<ApiResponse>(
+      `/task-wrappers/${id}/complete`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ content: content || 'Задание выполнено' }),
       }
     );
 
@@ -474,27 +522,17 @@ class ApiService {
     }
   }
 
-  async skipDailyTask(id: string, request: SkipDailyTaskRequest = {}): Promise<void> {
+  async skipTaskWrapper(id: string, reason?: string): Promise<void> {
     const response = await this.request<ApiResponse>(
-      `/daily-tasks/${id}/skip`,
+      `/task-wrappers/${id}/skip`,
       {
         method: 'POST',
-        body: JSON.stringify(request),
+        body: JSON.stringify({ reason: reason || 'Задание пропущено' }),
       }
     );
 
     if (!response.success) {
       throw new Error(response.error || 'Ошибка пропуска задания');
-    }
-  }
-
-  async getApostleTasks(apostleId: string): Promise<DailyTaskInfo[]> {
-    const response = await this.request<ApiResponse<DailyTaskInfo[]>>(`/apostles/${apostleId}/daily-tasks`);
-    
-    if (response.success && response.data) {
-      return response.data;
-    } else {
-      throw new Error(response.error || 'Ошибка получения заданий апостола');
     }
   }
 

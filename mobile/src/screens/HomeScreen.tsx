@@ -233,34 +233,34 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           </View>
         )}
 
-        {/* Active Challenges */}
-        {stats?.activeChallenges && stats.activeChallenges.length > 0 && (
+        {/* Active Paths */}
+        {stats?.activePaths && stats.activePaths.length > 0 && (
           <View style={styles.challengesSection}>
             <View style={styles.challengesHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Текущие задания
+                Активные пути
               </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Missions')}>
                 <Text style={[styles.viewAllButton, { color: theme.colors.primary }]}>
-                  Все задания →
+                  Все пути →
                 </Text>
               </TouchableOpacity>
             </View>
             
-            {stats.activeChallenges.slice(0, 3).map((challenge) => (
+            {stats.activePaths.slice(0, 3).map((path: any) => (
               <TouchableOpacity
-                key={challenge.id}
+                key={path.id}
                 style={[styles.challengeCard, { backgroundColor: theme.colors.surface }]}
-                onPress={() => handleChallengePress(challenge)}
+                onPress={() => handlePathPress()}
               >
                 <View style={styles.challengeHeader}>
-                  <Text style={styles.challengeIcon}>{challenge.icon || '🎯'}</Text>
+                  <Text style={styles.challengeIcon}>{path.icon || '🛤️'}</Text>
                   <View style={styles.challengeInfo}>
                     <Text style={[styles.challengeName, { color: theme.colors.text }]}>
-                      {challenge.name}
+                      {path.name}
                     </Text>
                     <Text style={[styles.challengeDescription, { color: theme.colors.textSecondary }]}>
-                      {challenge.description}
+                      {path.description}
                     </Text>
                   </View>
                   <Text style={[styles.challengeArrow, { color: theme.colors.textSecondary }]}>
@@ -268,11 +268,22 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                   </Text>
                 </View>
                 
-                {challenge.apostle && (
-                  <Text style={[styles.challengeApostle, { color: theme.colors.primary }]}>
-                    с {challenge.apostle.name}
+                <View style={styles.pathProgressInCard}>
+                  <Text style={[styles.pathProgressText, { color: theme.colors.primary }]}>
+                    Прогресс: {path.progress || 0}% ({path.completedChallenges || 0}/{path.totalChallenges || 0} заданий)
                   </Text>
-                )}
+                  <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
+                    <View 
+                      style={[
+                        styles.progressFill,
+                        { 
+                          backgroundColor: theme.colors.primary,
+                          width: `${path.progress || 0}%`
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -535,11 +546,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 8,
   },
-  challengeApostle: {
-    fontSize: 12,
-    fontWeight: '500',
+  pathProgressInCard: {
     marginTop: 8,
     marginLeft: 36,
+  },
+  pathProgressText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   chatSection: {
     paddingHorizontal: 20,
