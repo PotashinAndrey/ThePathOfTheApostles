@@ -59,9 +59,7 @@ export const PathScreen: React.FC<PathScreenProps> = ({ navigation, route }) => 
         // Если есть активные пути, загружаем задания
         const taskWrappers = await apiService.getActiveTaskWrappers();
         setActiveTaskWrappers(taskWrappers);
-        console.log('✅ Загружено заданий:', taskWrappers.length);
       } else {
-        console.log('⚠️ У пользователя нет активных путей');
         setActiveTaskWrappers([]);
       }
       

@@ -305,20 +305,8 @@ export const AppNavigator: React.FC = () => {
   const { theme } = useThemeStore();
   const { user, isAuthenticated } = useUserStore();
 
-  console.log('🔐 AppNavigator: Проверка авторизации');
-  console.log('👤 Текущий пользователь:', user?.email || 'не авторизован');
-  console.log('🔧 Platform:', Platform.OS);
-
   // Проверяем авторизацию через новую систему
   const userIsAuthenticated = isAuthenticated();
-  console.log('✅ Пользователь авторизован:', userIsAuthenticated);
-  
-  // Debug логи
-  if (userIsAuthenticated) {
-    console.log('📱 Рендерим MainTabs для авторизованного пользователя');
-  } else {
-    console.log('🔐 Рендерим AuthScreen для неавторизованного пользователя');
-  }
 
   return (
     <AuthGuard>
