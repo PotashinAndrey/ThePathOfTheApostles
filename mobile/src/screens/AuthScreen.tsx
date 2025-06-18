@@ -15,7 +15,7 @@ import apiService from '../services/apiNew';
 
 export const AuthScreen: React.FC = () => {
   const { theme } = useThemeStore();
-  const { setUser } = useUserStore();
+  const { setUser, setLoading } = useUserStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,6 +55,7 @@ export const AuthScreen: React.FC = () => {
     }
 
     setIsLoading(true);
+    setLoading(true); // Устанавливаем глобальное состояние загрузки
     console.log('🔐 Начинаем авторизацию:', { email, isRegistering });
 
     try {
@@ -90,7 +91,7 @@ export const AuthScreen: React.FC = () => {
         lastActiveDate: new Date(),
       };
 
-      // Сохраняем пользователя и токен
+      // Сохраняем пользователя и токен (setUser автоматически вызовет setLoading(false))
       setUser(user, response.token);
       
       console.log('✅ Пользователь сохранен в store:', user);
@@ -98,12 +99,28 @@ export const AuthScreen: React.FC = () => {
 
     } catch (error) {
       console.error('❌ Ошибка авторизации:', error);
-      Alert.alert(
-        'Ошибка авторизации', 
-        (error as Error).message || 'Не удалось войти в систему'
-      );
+      
+      // Обрабатываем разные типы ошибок безопасно
+      let errorMessage = 'Не удалось войти в систему';
+      
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('неверные учетные данные')) {
+          errorMessage = 'Неверный email или пароль';
+        } else if (message.includes('слишком много попыток')) {
+          errorMessage = error.message; // Показываем сообщение о блокировке
+        } else if (message.includes('network') || message.includes('fetch')) {
+          errorMessage = 'Проблема с сетью. Проверьте интернет-соединение';
+        } else {
+          errorMessage = 'Произошла ошибка при входе в систему';
+        }
+      }
+      
+      Alert.alert('Вход в систему', errorMessage);
     } finally {
       setIsLoading(false);
+      setLoading(false); // Сбрасываем глобальное состояние загрузки
     }
   };
 
@@ -111,6 +128,7 @@ export const AuthScreen: React.FC = () => {
   const handleDevLogin = async () => {
     console.log('⚡ Быстрый вход для разработки');
     setIsLoading(true);
+    setLoading(true); // Устанавливаем глобальное состояние загрузки
     
     try {
       const devEmail = `dev-${Date.now()}@apostles.app`;
@@ -144,9 +162,16 @@ export const AuthScreen: React.FC = () => {
       
     } catch (error) {
       console.error('❌ Ошибка dev входа:', error);
-      Alert.alert('Ошибка', 'Не удалось создать dev пользователя');
+      
+      let errorMessage = 'Не удалось создать dev пользователя';
+      if (error instanceof Error && error.message.includes('слишком много попыток')) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Dev вход', errorMessage);
     } finally {
       setIsLoading(false);
+      setLoading(false); // Сбрасываем глобальное состояние загрузки
     }
   };
 

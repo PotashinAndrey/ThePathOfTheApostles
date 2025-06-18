@@ -12,7 +12,7 @@ export interface UserResponse {
 }
 
 export interface UserProfileResponse extends UserResponse {
-  totalChallengesCompleted: number;
+  totalTasksCompleted: number;
   totalPathsCompleted: number;
   achievements: Achievement[];
   currentPath?: PathInfo;
@@ -51,12 +51,30 @@ export interface PathInfo {
 export interface ChallengeInfo {
   id: string;
   name: string;
-  description: string;
-  icon?: string;
+  description?: string;
   apostle: ApostleResponse;
+  totalTasks: number;
+  completedTasks: number;
   isCompleted: boolean;
   isActive: boolean;
-  order?: number;
+  tasks: TaskWrapperInfo[];
+}
+
+export interface TaskWrapperInfo {
+  id: string;
+  challengeId: string;
+  task: TaskInfo;
+  icon?: string;
+  order: number;
+  apostle?: ApostleResponse; // Может переопределять апостола испытания
+  isCompleted: boolean;
+  isActive: boolean;
+}
+
+export interface TaskInfo {
+  id: string;
+  name: string;
+  description: string;
 }
 
 export interface ChatInfo {
@@ -107,11 +125,19 @@ export interface NotificationInfo {
 export interface UserStatsResponse {
   streak: number;
   totalDays: number;
-  challengesCompleted: number;
+  tasksCompleted: number;
   pathsCompleted: number;
   currentPath?: PathInfo;
   activePaths: PathInfo[];
   completedPaths: PathInfo[];
+  activeTaskWrappers: TaskWrapperInfo[];
+}
+
+export interface UserMetaResponse {
+  id: string;
+  completedTasks: string[]; // ID TaskWrapper
+  activeTasks: string[]; // ID TaskWrapper
+  userChatsList: string[];
 }
 
 // Request types
@@ -143,45 +169,33 @@ export interface SendMessageRequest {
   voiceUrl?: string;
 }
 
-export interface CompleteChallengeRequest {
+export interface CompleteTaskWrapperRequest {
   content: string;
   result?: string;
 }
 
-// Path Task types - задания пути (не более одного в день)
-export interface DailyTaskInfo {
-  id: string;
-  name: string;
-  description: string;
-  apostleId: string;
-  apostle: ApostleResponse;
-  dayNumber: number; // 1-7 для недели апостола
-  status: 'pending' | 'active' | 'completed' | 'skipped';
-  createdAt: Date;
-  activatedAt?: Date;
-  completedAt?: Date;
-  motivationalPhrase: string;
+export interface StartPathRequest {
+  pathId: string;
 }
 
-export interface ActiveTaskResponse {
-  hasActiveTask: boolean;
-  currentTask?: DailyTaskInfo;
-  nextTask?: DailyTaskInfo;
-  apostleProgress: {
-    apostleId: string;
-    currentDay: number;
-    completedTasks: number;
-    totalTasks: number;
-  };
+export interface ActivateTaskWrapperRequest {
+  taskWrapperId: string;
 }
 
-export interface CompleteDailyTaskRequest {
-  content?: string;
-  notes?: string;
+// Path progress types
+export interface PathProgressResponse {
+  pathId: string;
+  currentChallengeId?: string;
+  currentTaskWrapperId?: string;
+  canAdvance: boolean; // Можно ли перейти к следующему заданию
+  completionPercentage: number;
 }
 
-export interface SkipDailyTaskRequest {
-  reason?: string;
+export interface NextTaskResponse {
+  hasNext: boolean;
+  nextTaskWrapper?: TaskWrapperInfo;
+  nextChallenge?: ChallengeInfo;
+  pathCompleted?: boolean;
 }
 
 // API Response wrapper
@@ -197,4 +211,40 @@ export interface AuthResponse {
   token: string;
   user: UserResponse;
   message: string;
-} 
+}
+
+// DEPRECATED: старые типы для ежедневных заданий (будут удалены)
+// export interface DailyTaskInfo {
+//   id: string;
+//   name: string;
+//   description: string;
+//   apostleId: string;
+//   apostle: ApostleResponse;
+//   dayNumber: number;
+//   status: 'pending' | 'active' | 'completed' | 'skipped';
+//   createdAt: Date;
+//   activatedAt?: Date;
+//   completedAt?: Date;
+//   motivationalPhrase: string;
+// }
+
+// export interface ActiveTaskResponse {
+//   hasActiveTask: boolean;
+//   currentTask?: DailyTaskInfo;
+//   nextTask?: DailyTaskInfo;
+//   apostleProgress: {
+//     apostleId: string;
+//     currentDay: number;
+//     completedTasks: number;
+//     totalTasks: number;
+//   };
+// }
+
+// export interface CompleteDailyTaskRequest {
+//   content?: string;
+//   notes?: string;
+// }
+
+// export interface SkipDailyTaskRequest {
+//   reason?: string;
+// } 

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       streak: user.streak,
       avatar: user.avatar,
       status: user.status,
-      totalChallengesCompleted: 0, // Заглушка, потом подсчитаем
+      totalTasksCompleted: 0, // Заглушка, потом подсчитаем
       totalPathsCompleted: 0, // Заглушка, потом подсчитаем
       achievements: [], // Заглушка, потом получим из БД
       currentPath: undefined // Заглушка, потом получим из БД
@@ -133,7 +133,7 @@ export async function PUT(request: NextRequest) {
       streak: updatedUser.streak,
       avatar: updatedUser.avatar,
       status: updatedUser.status,
-      totalChallengesCompleted: 0,
+              totalTasksCompleted: 0, // Исправлено: используем правильное поле из интерфейса
       totalPathsCompleted: 0,
       achievements: [],
       currentPath: undefined

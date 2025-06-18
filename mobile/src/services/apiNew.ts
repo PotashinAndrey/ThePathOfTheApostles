@@ -114,6 +114,17 @@ class ApiService {
           console.error('❌ Error parsing error response:', parseError);
         }
         
+        // Специальная обработка различных статусов
+        if (response.status === 429) {
+          console.warn('🚨 Rate limit exceeded');
+          // errorMessage уже содержит сообщение от сервера
+        } else if (response.status === 401) {
+          console.warn('🔐 Unauthorized - invalid credentials');
+          // Сохраняем сообщение сервера для правильной обработки
+        } else if (response.status >= 500) {
+          errorMessage = 'Проблема на сервере. Попробуйте позже';
+        }
+        
         throw new Error(errorMessage);
       }
 

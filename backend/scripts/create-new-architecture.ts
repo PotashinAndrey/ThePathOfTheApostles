@@ -155,18 +155,13 @@ async function createNewArchitecture() {
   }
 }
 
-// Главная функция seed
-async function main() {
-  console.log('🌱 Запуск seed с новой архитектурой...');
-  await createNewArchitecture();
+// Запуск создания архитектуры
+if (require.main === module) {
+  createNewArchitecture()
+    .catch((error) => {
+      console.error('💥 Критическая ошибка:', error);
+      process.exit(1);
+    });
 }
 
-// Запуск seed
-main()
-  .catch((error) => {
-    console.error('💥 Критическая ошибка seed:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  }); 
+export default createNewArchitecture; 
