@@ -12,9 +12,8 @@ export type ChatStackParamList = {
     chatId?: string;
     apostleId?: string;
   };
-  DailyTask: {
-    taskId: string;
-    task?: any;
+  TaskWrapper: {
+    taskWrapper: any;
   };
 };
 

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Platform } from 'react-native';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { useTaskWrapperSync } from './src/hooks/useTaskWrapperSync';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -34,32 +35,61 @@ class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
+      const { View, Text, TouchableOpacity } = require('react-native');
       return (
-        <div style={{
-          padding: '20px',
+        <View style={{
+          flex: 1,
+          padding: 20,
           backgroundColor: '#ff6b6b',
-          color: 'white',
-          fontFamily: 'monospace',
-          whiteSpace: 'pre-wrap'
+          justifyContent: 'center',
+          alignItems: 'center'
         }}>
-          <h2>🚨 Ошибка приложения</h2>
-          <p><strong>Platform:</strong> {Platform.OS}</p>
-          <p><strong>Error:</strong> {this.state.error?.message}</p>
-          <p><strong>Stack:</strong> {this.state.error?.stack}</p>
-          <button 
-            onClick={() => window.location.reload()}
+          <Text style={{
+            fontSize: 24,
+            color: 'white',
+            fontWeight: 'bold',
+            marginBottom: 20,
+            textAlign: 'center'
+          }}>
+            🚨 Ошибка приложения
+          </Text>
+          <Text style={{
+            fontSize: 16,
+            color: 'white',
+            marginBottom: 10,
+            textAlign: 'center'
+          }}>
+            Platform: {Platform.OS}
+          </Text>
+          <Text style={{
+            fontSize: 14,
+            color: 'white',
+            marginBottom: 10,
+            textAlign: 'center'
+          }}>
+            Error: {this.state.error?.message}
+          </Text>
+          <TouchableOpacity
             style={{
-              padding: '10px 20px',
+              padding: 15,
               backgroundColor: 'white',
-              color: '#ff6b6b',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
+              borderRadius: 8,
+              marginTop: 20
+            }}
+            onPress={() => {
+              // Для React Native нужно перезапустить приложение другим способом
+              console.log('🔄 Перезагрузка приложения...');
             }}
           >
-            🔄 Перезагрузить
-          </button>
-        </div>
+            <Text style={{
+              color: '#ff6b6b',
+              fontSize: 16,
+              fontWeight: 'bold'
+            }}>
+              🔄 Перезагрузить
+            </Text>
+          </TouchableOpacity>
+        </View>
       );
     }
 
@@ -90,10 +120,16 @@ export default function App() {
     }
   }, []);
 
+  // Компонент-обертка для использования хуков внутри провайдеров
+  const AppWrapper = () => {
+    useTaskWrapperSync(); // Автоматическая синхронизация TaskWrapper'ов
+    return <AppNavigator />;
+  };
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AppNavigator />
+        <AppWrapper />
       </QueryClientProvider>
     </ErrorBoundary>
   );

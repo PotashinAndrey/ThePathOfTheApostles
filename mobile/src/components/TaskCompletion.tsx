@@ -10,14 +10,16 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { dailyTaskAPI } from '../services/api';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { useUserStore } from '../stores/userStore';
 
 interface TaskCompletionProps {
-  task: {
+  taskWrapper: {
     id: string;
-    name: string;
-    description: string;
+    task: {
+      name: string;
+      description: string;
+    };
     motivationalPhrase?: string;
   };
   visible: boolean;
@@ -26,7 +28,7 @@ interface TaskCompletionProps {
 }
 
 export const TaskCompletion: React.FC<TaskCompletionProps> = ({
-  task,
+  taskWrapper,
   visible,
   onClose,
   onCompleted,
@@ -37,6 +39,7 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
   const [skipReason, setSkipReason] = useState('');
   const { token } = useUserStore();
+  const { completeTaskWrapper, skipTaskWrapper } = useTaskWrapperStore();
 
   const handleComplete = async () => {
     if (!content.trim()) {
@@ -46,7 +49,7 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
 
     setLoading(true);
     try {
-      await dailyTaskAPI.completeTask(task.id, content, notes, token || undefined);
+      await completeTaskWrapper(taskWrapper.id, content);
       
       Alert.alert(
         'Поздравляем! 🎉', 
@@ -73,7 +76,7 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
   const handleSkip = async () => {
     setLoading(true);
     try {
-      await dailyTaskAPI.skipTask(task.id, skipReason, token || undefined);
+      await skipTaskWrapper(taskWrapper.id, skipReason);
       
       Alert.alert(
         'Задание пропущено',
@@ -141,11 +144,11 @@ export const TaskCompletion: React.FC<TaskCompletionProps> = ({
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.taskInfo}>
-            <Text style={styles.taskName}>{task.name}</Text>
-            <Text style={styles.taskDescription}>{task.description}</Text>
-            {task.motivationalPhrase && (
+            <Text style={styles.taskName}>{taskWrapper.task.name}</Text>
+            <Text style={styles.taskDescription}>{taskWrapper.task.description}</Text>
+            {taskWrapper.motivationalPhrase && (
               <View style={styles.motivationContainer}>
-                <Text style={styles.motivationText}>"{task.motivationalPhrase}"</Text>
+                <Text style={styles.motivationText}>"{taskWrapper.motivationalPhrase}"</Text>
               </View>
             )}
           </View>

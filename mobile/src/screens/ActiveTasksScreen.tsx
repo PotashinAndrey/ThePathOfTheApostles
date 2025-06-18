@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { TaskWrapperCard } from '../components/TaskWrapperCard';
 import { TaskWrapperInfo } from '../types/api';
-import apiService from '../services/apiNew';
 
 interface ActiveTasksScreenProps {
   navigation?: any;
@@ -23,56 +23,36 @@ interface ActiveTasksScreenProps {
 export const ActiveTasksScreen: React.FC<ActiveTasksScreenProps> = ({ navigation }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const [activeTaskWrappers, setActiveTaskWrappers] = useState<TaskWrapperInfo[]>([]);
-  const [completedTaskWrappers, setCompletedTaskWrappers] = useState<TaskWrapperInfo[]>([]);
-  const [allTaskWrappers, setAllTaskWrappers] = useState<TaskWrapperInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    taskWrappers: allTaskWrappers,
+    activeTaskWrappers,
+    completedTaskWrappers,
+    isLoading,
+    isRefreshing,
+    loadTaskWrappers,
+    refreshTaskWrappers,
+  } = useTaskWrapperStore();
+  
   const [selectedTab, setSelectedTab] = useState<'active' | 'completed' | 'all'>('active');
 
-  const loadTaskWrappers = useCallback(async () => {
-    try {
-      console.log('🔄 Загружаем TaskWrappers...');
-      
-      // Получаем все TaskWrapper
-      const allTasks = await apiService.getAllTaskWrappers();
-      console.log('📝 Получено заданий:', allTasks.length);
-      
-      // Фильтруем по статусу
-      const activeTasks = allTasks.filter(tw => tw.isActive && !tw.isCompleted);
-      const completedTasks = allTasks.filter(tw => tw.isCompleted);
-      
-      console.log('⚡ Активных заданий:', activeTasks.length);
-      console.log('✅ Завершенных заданий:', completedTasks.length);
-      
-      setAllTaskWrappers(allTasks);
-      setActiveTaskWrappers(activeTasks);
-      setCompletedTaskWrappers(completedTasks);
-      
-    } catch (error) {
-      console.error('❌ Ошибка загрузки заданий:', error);
-      Alert.alert('Ошибка', 'Не удалось загрузить задания');
-    }
-  }, []);
-
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      await loadTaskWrappers();
-      setIsLoading(false);
-    };
-    
-    loadData();
-  }, [loadTaskWrappers]);
+    // Загружаем данные при первом рендере, если они еще не загружены
+    if (allTaskWrappers.length === 0 && !isLoading) {
+      loadTaskWrappers();
+    }
+  }, [allTaskWrappers.length, isLoading, loadTaskWrappers]);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadTaskWrappers();
-    setIsRefreshing(false);
+    try {
+      await refreshTaskWrappers();
+    } catch (error) {
+      console.error('❌ Ошибка обновления заданий:', error);
+      Alert.alert('Ошибка', 'Не удалось обновить задания');
+    }
   };
 
   const handleTaskWrapperPress = (taskWrapper: TaskWrapperInfo) => {
-    navigation?.navigate?.('PathTask', {
+    navigation?.navigate?.('TaskWrapper', {
       taskWrapper: taskWrapper,
     });
   };
@@ -227,7 +207,6 @@ export const ActiveTasksScreen: React.FC<ActiveTasksScreenProps> = ({ navigation
               key={taskWrapper.id}
               taskWrapper={taskWrapper}
               onPress={handleTaskWrapperPress}
-              onStatusChange={loadTaskWrappers}
               showActions={true}
             />
           ))

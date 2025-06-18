@@ -70,6 +70,20 @@ export async function GET(
     const isCompleted = user.meta.completedTasks.includes(taskWrapper.id);
     const isActive = user.meta.activeTasks.includes(taskWrapper.id);
 
+    // Вычисляем доступность задания (доступно если предыдущее завершено или это первое)
+    let isAvailable = false;
+    if (challenge) {
+      const currentIndex = challenge.orderedTasks.indexOf(taskWrapper.id);
+      if (currentIndex === 0) {
+        // Первое задание всегда доступно
+        isAvailable = true;
+      } else {
+        // Проверяем завершено ли предыдущее задание
+        const prevTaskWrapperId = challenge.orderedTasks[currentIndex - 1];
+        isAvailable = user.meta.completedTasks.includes(prevTaskWrapperId);
+      }
+    }
+
     // Преобразуем в формат API
     const taskWrapperInfo: TaskWrapperInfo = {
       id: taskWrapper.id,
@@ -97,7 +111,8 @@ export async function GET(
         } : undefined
       } : undefined,
       isCompleted,
-      isActive
+      isActive,
+      isAvailable
     };
 
     console.log('✅ TaskWrapper получен');
@@ -169,7 +184,7 @@ export async function POST(
     const currentCompletedTasks = user.meta.completedTasks;
 
     if (action === 'activate') {
-      // Активируем TaskWrapper
+      // Проверяем что TaskWrapper доступен для активации
       if (currentActiveTasks.includes(params.id)) {
         return NextResponse.json<ApiResponse>({
           success: false,
@@ -182,6 +197,45 @@ export async function POST(
           success: false,
           error: 'TaskWrapper уже завершен'
         }, { status: 400 });
+      }
+
+      // 🚫 ПРОВЕРКА: Только одно активное задание за раз
+      const challengeForActivation = await prisma.challenge.findUnique({
+        where: { id: taskWrapper.challengeId }
+      });
+
+      if (challengeForActivation) {
+        // Проверяем есть ли уже активные задания из этого испытания
+        const activeTasksFromThisChallenge = currentActiveTasks.filter(activeTaskId => 
+          challengeForActivation.orderedTasks.includes(activeTaskId)
+        );
+
+        if (activeTasksFromThisChallenge.length > 0) {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'У вас уже есть активное задание из этого испытания. Завершите его сначала.'
+          }, { status: 400 });
+        }
+
+        // 🔒 ПРОВЕРКА: Доступно ли задание для активации
+        const currentIndex = challengeForActivation.orderedTasks.indexOf(params.id);
+        if (currentIndex === -1) {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'TaskWrapper не найден в испытании'
+          }, { status: 400 });
+        }
+
+        if (currentIndex > 0) {
+          // Проверяем завершено ли предыдущее задание
+          const prevTaskWrapperId = challengeForActivation.orderedTasks[currentIndex - 1];
+          if (!currentCompletedTasks.includes(prevTaskWrapperId)) {
+            return NextResponse.json<ApiResponse>({
+              success: false,
+              error: 'Предыдущее задание должно быть завершено перед активацией этого'
+            }, { status: 400 });
+          }
+        }
       }
 
       // Добавляем в список активных
@@ -239,6 +293,23 @@ export async function POST(
           completedTasks: updatedCompletedTasks
         }
       });
+
+      // 🔓 РАЗБЛОКИРОВКА СЛЕДУЮЩЕГО ЗАДАНИЯ (без автоактивации)
+      const challengeForUnlock = await prisma.challenge.findUnique({
+        where: { id: taskWrapper.challengeId }
+      });
+
+      if (challengeForUnlock) {
+        const currentIndex = challengeForUnlock.orderedTasks.indexOf(params.id);
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex < challengeForUnlock.orderedTasks.length) {
+          const nextTaskWrapperId = challengeForUnlock.orderedTasks[nextIndex];
+          console.log(`🔓 Следующее задание теперь доступно для активации: ${nextTaskWrapperId}`);
+        } else {
+          console.log('🏆 Испытание завершено! Все задания выполнены.');
+        }
+      }
 
       console.log('✅ TaskWrapper завершен');
 

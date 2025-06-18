@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { useThemeStore } from '../stores/themeStore';
 import { useUserStore } from '../stores/userStore';
+import { useTaskWrapperStore } from '../stores/taskWrapperStore';
 import { ChatBubble } from '../components/ChatBubble';
-import { DailyTaskWidget } from '../components/DailyTaskWidget';
+import { TaskWrapperCard } from '../components/TaskWrapperCard';
 import { ChatMessage } from '../services/api';
-import { DailyTaskInfo, ActiveTaskResponse } from '../types/api';
+import { TaskWrapperInfo } from '../types/api';
 import apiService from '../services/apiNew';
 import { APOSTLES } from '../constants/apostles';
 
@@ -33,6 +34,7 @@ interface ChatScreenProps {
 export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
+  const { activeTaskWrappers, completeTaskWrapper, skipTaskWrapper } = useTaskWrapperStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,8 +42,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [chatId, setChatId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [activeTask, setActiveTask] = useState<DailyTaskInfo | null>(null);
-  const [isLoadingTask, setIsLoadingTask] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Определяем текущего апостола из параметров или пользователя
@@ -50,35 +50,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     ? APOSTLES.find(a => a.id === apostleId) || user?.currentApostle || APOSTLES[0]
     : user?.currentApostle || APOSTLES[0];
 
+  // Получаем активное задание для текущего апостола из store
+  const activeTask = currentApostle 
+    ? activeTaskWrappers.find(tw => tw.apostle?.id === currentApostle.id) || null
+    : null;
+
   useEffect(() => {
     if (currentApostle && user?.id) {
       console.log('💬 Инициализация чата с', currentApostle.name);
       initializeChat();
-      loadActiveTask();
     }
   }, [currentApostle?.id, user?.id]);
 
-  const loadActiveTask = async () => {
-    if (!currentApostle || !user?.id) return;
-    
-    try {
-      setIsLoadingTask(true);
-      const activeTaskData = await apiService.getActiveTask();
-      
-      // Показываем задание только если оно принадлежит текущему апостолу
-      if (activeTaskData.hasActiveTask && 
-          activeTaskData.currentTask?.apostleId === currentApostle.id) {
-        setActiveTask(activeTaskData.currentTask);
-      } else {
-        setActiveTask(null);
-      }
-    } catch (error) {
-      console.error('❌ Ошибка загрузки активного задания:', error);
-      setActiveTask(null);
-    } finally {
-      setIsLoadingTask(false);
-    }
-  };
+
 
   const initializeChat = async () => {
     if (!currentApostle || !user?.id) return;
@@ -308,9 +292,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const handleTaskPress = () => {
     if (!activeTask) return;
     
-    navigation?.navigate?.('DailyTask', {
-      taskId: activeTask.id,
-      task: activeTask
+    navigation?.navigate?.('TaskWrapper', {
+      taskWrapper: activeTask
     });
   };
 
@@ -327,21 +310,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           style: 'default',
           onPress: async () => {
             try {
-              await apiService.completeDailyTask(activeTask.id);
-              
-              // Обновляем локальное состояние
-              setActiveTask(prev => prev ? { ...prev, status: 'completed', completedAt: new Date() } : null);
+              await completeTaskWrapper(activeTask.id);
               
               Alert.alert(
                 'Поздравляем! 🎉',
-                'Задание успешно выполнено. Завтра вас ждет новое испытание!',
-                [{ text: 'OK' }]
+                'Задание успешно выполнено. Продолжайте свой путь развития!'
               );
-              
-              // Перезагружаем задание через некоторое время
-              setTimeout(() => {
-                loadActiveTask();
-              }, 1000);
             } catch (error) {
               console.error('Ошибка завершения задания:', error);
               Alert.alert('Ошибка', 'Не удалось завершить задание');
@@ -356,28 +330,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     if (!activeTask) return;
 
     Alert.alert(
-      'Оставить задание',
-      'Задание останется активным и вы сможете вернуться к нему завтра.',
+      'Пропустить задание',
+      'Вы хотите пропустить это задание и перейти к следующему?',
       [
         { text: 'Отмена', style: 'cancel' },
         {
-          text: 'Оставить',
+          text: 'Пропустить',
           style: 'default',
           onPress: async () => {
             try {
-              await apiService.skipDailyTask(activeTask.id);
+              await skipTaskWrapper(activeTask.id);
               
               Alert.alert(
-                'Задание отложено',
-                'Вы можете вернуться к нему в любое время.',
-                [{ text: 'OK' }]
+                'Задание пропущено',
+                'Переходите к следующему заданию.'
               );
-              
-              // Обновляем задание
-              loadActiveTask();
             } catch (error) {
               console.error('Ошибка пропуска задания:', error);
-              Alert.alert('Ошибка', 'Не удалось отложить задание');
+              Alert.alert('Ошибка', 'Не удалось пропустить задание');
             }
           }
         }
@@ -454,14 +424,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
         </View>
 
-        {/* Path Task Widget */}
+        {/* Active Task Widget */}
         {activeTask && (
-          <DailyTaskWidget
-            task={activeTask}
+          <TaskWrapperCard
+            taskWrapper={activeTask}
             onPress={handleTaskPress}
-            onComplete={handleTaskComplete}
-            onSkip={handleTaskSkip}
-            showActions={false}
+            showActions={true}
           />
         )}
 

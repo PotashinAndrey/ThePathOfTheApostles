@@ -21,10 +21,7 @@ import {
   SubscriptionInfo,
   UpdateProfileRequest,
   ChangePasswordRequest,
-  DailyTaskInfo,
-  ActiveTaskResponse,
-  CompleteDailyTaskRequest,
-  SkipDailyTaskRequest,
+
   TaskWrapperInfo
 } from '../types/api';
 
