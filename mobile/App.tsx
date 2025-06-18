@@ -69,18 +69,14 @@ class ErrorBoundary extends React.Component<
 
 export default function App() {
   useEffect(() => {
-    console.log('🚀 App запущен');
-    console.log('🔧 Platform:', Platform.OS);
-    console.log('🌐 User Agent:', navigator?.userAgent || 'N/A');
-    
     // Глобальная обработка ошибок
     const handleError = (event: ErrorEvent) => {
-      console.error('🚨 Глобальная ошибка JavaScript:', event.error);
-      console.error('🚨 Файл:', event.filename, 'Строка:', event.lineno);
+      console.error('Глобальная ошибка JavaScript:', event.error);
+      console.error('Файл:', event.filename, 'Строка:', event.lineno);
     };
 
     const handlePromiseRejection = (event: PromiseRejectionEvent) => {
-      console.error('🚨 Необработанное отклонение Promise:', event.reason);
+      console.error('Необработанное отклонение Promise:', event.reason);
     };
 
     if (Platform.OS === 'web') {
